@@ -2,6 +2,8 @@ package compute
 
 import (
 	"context"
+	_ "embed"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
@@ -13,6 +15,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"go.uber.org/zap"
 )
+
+//go:embed userdata.sh
+var userData []byte
 
 type InstancePool interface {
 	io.Closer
@@ -161,7 +166,7 @@ func (p *Pool) getInstanceConfiguration() *ec2.RunInstancesInput {
 		MinCount:           aws.Int32(1),
 		MaxCount:           aws.Int32(1),
 		IamInstanceProfile: nil,
-		ImageId:            aws.String("ami-066b217cd356469cd"),
+		ImageId:            aws.String("ami-0892d3c7ee96c0bf7"),
 		InstanceMarketOptions: &types.InstanceMarketOptionsRequest{
 			MarketType:  types.MarketTypeSpot,
 			SpotOptions: nil,
@@ -169,6 +174,6 @@ func (p *Pool) getInstanceConfiguration() *ec2.RunInstancesInput {
 		InstanceType:     "g4dn.xlarge",
 		KeyName:          aws.String("us-west-ec2-keys"),
 		SecurityGroupIds: []string{"sg-09b52430796d9b9c5"},
-		UserData:         nil,
+		UserData:         aws.String(base64.StdEncoding.EncodeToString(userData)),
 	}
 }
