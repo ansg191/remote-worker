@@ -89,3 +89,4 @@ fabric.properties
 # vendor/
 
 *.pb.go
+dist/
