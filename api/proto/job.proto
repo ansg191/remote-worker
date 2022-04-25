@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package encoder;
+package encoder_job;
 
 option go_package = "golang.anshulg.com/popcorntime/go_encoder/api/proto";
 
