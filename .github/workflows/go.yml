@@ -21,6 +21,9 @@ jobs:
       with:
         go-version: 1.18
 
+    - name: Setup protoc
+      uses: arduino/setup-protoc@v1.1.2
+
     - name: Download Dependencies
       run: go mod download
 
