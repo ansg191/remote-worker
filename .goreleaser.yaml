@@ -14,6 +14,13 @@ builds:
       - linux
       - windows
       - darwin
+  - main: ./cmd/manager
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
 archives:
   - replacements:
       darwin: Darwin
