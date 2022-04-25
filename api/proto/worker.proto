@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package encoder;
+
+option go_package = "golang.anshulg.com/popcorntime/go_encoder/api/proto";
+
+service WorkerService {
+  rpc Status(WorkerStatusRequest) returns (WorkerStatusResponse) {}
+}
+
+message WorkerStatusRequest {}
+
+message WorkerStatusResponse {
+  string msg = 1;
+}

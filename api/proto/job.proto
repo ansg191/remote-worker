@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package encoder;
+
+option go_package = "golang.anshulg.com/popcorntime/go_encoder/api/proto";
+
+service JobService {
+  rpc Start(JobStartRequest) returns (JobStartResponse) {}
+  rpc Cancel(JobCancelRequest) returns (JobCancelResponse) {}
+  rpc Status(JobStatusRequest) returns (stream JobStatus) {}
+}
+
+message Job {
+  string sourcePath = 1;
+  string destPath = 2;
+  string codec = 3;
+  string bitrate = 4;
+}
+
+message JobStartRequest {
+  Job job = 1;
+}
+message JobStartResponse {}
+
+message JobCancelRequest {}
+message JobCancelResponse {}
+
+message JobStatusRequest {}
+message JobStatus {
+  enum Status {
+    ENCODING = 0;
+    DOWNLOADING = 1;
+    UPLOADING = 2;
+    ERROR = 3;
+  }
+  Status status = 1;
+
+  EncodeStatus encodeStatus = 2;
+
+  string error = 3;
+}
+
+message EncodeStatus {
+  int32 framesProcessed = 1;
+  string currTime = 2;
+  string bitRate = 3;
+  double progress = 4;
+  double speed = 5;
+}
