@@ -34,4 +34,10 @@ jobs:
         go generate golang.anshulg.com/popcorntime/go_encoder/api/proto
 
     - name: Build
-      run: go build -v golang.anshulg.com/popcorntime/go_encoder/cmd/worker
+      run: go build -v -ldflags "-s -w" golang.anshulg.com/popcorntime/go_encoder/cmd/worker
+
+    - name: Archive artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: worker
+        path: worker
