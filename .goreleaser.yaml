@@ -68,7 +68,7 @@ release:
   github:
     owner: ansg191
     name: go_encoder
-  prerelease: auto
+  prerelease: "true"
 snapshot:
   name_template: "{{ incpatch .Version }}-next"
 changelog:
