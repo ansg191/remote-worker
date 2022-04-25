@@ -7,14 +7,16 @@ before:
     # you may remove this if you don't need go generate
     - go generate ./...
 builds:
-  - main: ./cmd/worker
+  - id: go_encoder_worker
+    main: ./cmd/worker
     env:
       - CGO_ENABLED=0
     goos:
       - linux
       - windows
       - darwin
-  - main: ./cmd/manager
+  - id: go_encoder_manager
+    main: ./cmd/manager
     env:
       - CGO_ENABLED=0
     goos:
