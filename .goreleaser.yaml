@@ -26,7 +26,34 @@ builds:
       - windows
       - darwin
 archives:
-  - replacements:
+  - id: default
+    replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      386: i386
+      amd64: x86_64
+    format_overrides:
+      - goos: windows
+        format: zip
+  - id: worker
+    builds:
+      - go_encoder_worker
+    name_template: '{{ .ProjectName }}_worker_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}'
+    replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      386: i386
+      amd64: x86_64
+    format_overrides:
+      - goos: windows
+        format: zip
+  - id: manager
+    builds:
+      - go_encoder_manager
+    name_template: '{{ .ProjectName }}_manager_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}'
+    replacements:
       darwin: Darwin
       linux: Linux
       windows: Windows
