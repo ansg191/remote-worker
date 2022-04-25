@@ -31,7 +31,7 @@ func main() {
 		zap.Stringp("tempPath", tempPath),
 	)
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
+	lis, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", *port))
 	if err != nil {
 		logger.Fatal("listener error", zap.Error(err))
 	}
