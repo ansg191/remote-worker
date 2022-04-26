@@ -53,7 +53,6 @@ func (q *DefaultWorkQueue) run() {
 			q.logger.Debug("Work received", zap.Any("req", work.getReq()))
 
 			q.mtx.Lock()
-			q.wg.Add(1)
 
 			worker, err := q.pool.GetWorker(work.getCtx())
 			if err != nil {
@@ -105,13 +104,12 @@ func (q *DefaultWorkQueue) run() {
 
 func (q *DefaultWorkQueue) Add(info WorkInfo) {
 	q.logger.Debug("Adding job to WorkQueue", zap.Any("req", info.getReq()))
+	q.wg.Add(1)
 	q.workQueue <- info
 }
 
 func (q *DefaultWorkQueue) Wait() {
-	for len(q.workQueue) > 0 {
-		q.wg.Wait()
-	}
+	q.wg.Wait()
 }
 
 func (q *DefaultWorkQueue) GetMaxSize() int {

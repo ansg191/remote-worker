@@ -90,3 +90,5 @@ fabric.properties
 
 *.pb.go
 dist/
+
+*_mock.go

@@ -8,6 +8,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.5
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.36.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.26.5
+	github.com/golang/mock v1.6.0
+	github.com/launchdarkly/go-test-helpers/v2 v2.3.1
 	github.com/pkg/errors v0.8.1
 	github.com/xfrr/goffmpeg v0.0.0-20210624103149-5ca2d3062daf
 	go.uber.org/zap v1.21.0
@@ -30,6 +32,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.11.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.3 // indirect
 	github.com/aws/smithy-go v1.11.2 // indirect
+	github.com/benbjohnson/clock v1.1.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect

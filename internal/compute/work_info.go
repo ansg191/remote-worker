@@ -48,8 +48,8 @@ func NewWorkInfo[T, U any](ctx context.Context, request T, runFunc WorkRunFunc[T
 	return &GenericWorkInfo[T, U]{
 		Ctx:     ctx,
 		Request: request,
-		Result:  make(chan U),
-		Err:     make(chan error),
+		Result:  make(chan U, 1),
+		Err:     make(chan error, 1),
 		Run:     runFunc,
 	}
 }
