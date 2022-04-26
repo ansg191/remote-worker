@@ -11,28 +11,28 @@ type WorkQueue interface {
 	Add(info WorkInfo)
 	// Wait for all jobs to complete
 	Wait()
-	// GetMaxSize returns maximum number of allowed concurrent instances
+	// GetMaxSize returns maximum number of allowed concurrent workers
 	GetMaxSize() int
-	// SetMaxSize sets maximum number of allowed concurrent instances
+	// SetMaxSize sets maximum number of allowed concurrent workers
 	SetMaxSize(size int)
 }
 
-type InstanceWorkQueue struct {
+type DefaultWorkQueue struct {
 	logger *zap.Logger
 
 	wg   sync.WaitGroup // WaitGroup to manage all jobs
-	pool InstancePool   // InstancePool to get instances from
+	pool Pool           // InstancePool to get workers from
 
 	workQueue chan WorkInfo // workQueue used as a thread-safe FIFO queue
 
-	mtx       sync.Mutex  // mtx is a mutex for instances.
-	instances []*Instance // Instances in-use taken from the pool.
+	mtx     sync.Mutex // mtx is a mutex for workers.
+	workers []Worker   // Instances in-use taken from the pool.
 
-	maxSize int // Maximum number of active in-use instances
+	maxSize int // Maximum number of active in-use workers
 }
 
-func NewQueue(logger *zap.Logger, pool InstancePool, maxSize int) WorkQueue {
-	wq := &InstanceWorkQueue{
+func NewQueue(logger *zap.Logger, pool Pool, maxSize int) WorkQueue {
+	wq := &DefaultWorkQueue{
 		logger:    logger,
 		pool:      pool,
 		maxSize:   maxSize,
@@ -44,80 +44,78 @@ func NewQueue(logger *zap.Logger, pool InstancePool, maxSize int) WorkQueue {
 	return wq
 }
 
-func (q *InstanceWorkQueue) run() {
+func (q *DefaultWorkQueue) run() {
 	for {
-		if len(q.instances) < q.maxSize {
+		if len(q.workers) < q.maxSize {
 			// Wait for work
 			work := <-q.workQueue
 
 			q.logger.Debug("Work received", zap.Any("req", work.getReq()))
 
 			q.mtx.Lock()
-			q.wg.Add(1)
 
-			instance, err := q.pool.GetAvailableInstance(work.getCtx())
+			worker, err := q.pool.GetWorker(work.getCtx())
 			if err != nil {
-				q.logger.Error("Error getting instance from pool", zap.Error(err))
+				q.logger.Error("Error getting worker from pool", zap.Error(err))
 				work.setErr(err)
 				q.wg.Done()
 				q.mtx.Unlock()
 				continue
 			}
 
-			q.logger.Debug("Instance retrieved for work", zap.Any("req", work.getReq()), zap.String("instanceId", instance.Id))
+			q.logger.Debug("Worker retrieved for work", zap.Any("req", work.getReq()))
 
-			q.instances = append(q.instances, instance)
+			q.workers = append(q.workers, worker)
 
 			q.mtx.Unlock()
 
 			go func() {
-				defer func(instance *Instance) {
+				defer func(worker Worker) {
 					q.wg.Done()
-					q.instances = removeItem(q.instances, instance)
-					_ = instance.Close()
-				}(instance)
+					q.workers = removeItem(q.workers, worker)
+					q.pool.ReturnWorker(worker)
+				}(worker)
 
-				q.logger.Debug("Waiting for instance ready", zap.Any("req", work.getReq()), zap.String("instanceId", instance.Id))
-				err := <-instance.IsReadyChan(work.getCtx())
+				q.logger.Debug("Waiting for worker ready", zap.Any("req", work.getReq()))
+				err := <-worker.IsReadyChan(work.getCtx())
 				if err != nil {
 					work.setErr(err)
 					return
 				}
 
-				err = instance.Refresh(work.getCtx())
+				err = worker.Connect(work.getCtx())
 				if err != nil {
 					work.setErr(err)
 					return
 				}
 
-				q.logger.Info("Starting work", zap.Any("req", work.getReq()), zap.String("instanceId", instance.Id))
-				result, err := work.run(work.getCtx(), q.logger, work.getReq(), instance)
+				q.logger.Info("Starting work", zap.Any("req", work.getReq()))
+				result, err := work.run(work.getCtx(), q.logger, work.getReq(), worker)
 				if err != nil {
 					work.setErr(err)
 				} else {
 					work.setRes(result)
 				}
-				q.logger.Info("Work finished", zap.Any("req", work.getReq()), zap.String("instanceId", instance.Id))
+				q.logger.Info("Work finished", zap.Any("req", work.getReq()))
 			}()
 		}
 	}
 }
 
-func (q *InstanceWorkQueue) Add(info WorkInfo) {
+func (q *DefaultWorkQueue) Add(info WorkInfo) {
 	q.logger.Debug("Adding job to WorkQueue", zap.Any("req", info.getReq()))
+	q.wg.Add(1)
 	q.workQueue <- info
 }
 
-func (q *InstanceWorkQueue) Wait() {
-	for len(q.workQueue) > 0 {
-		q.wg.Wait()
-	}
+func (q *DefaultWorkQueue) Wait() {
+	q.wg.Wait()
 }
 
-func (q *InstanceWorkQueue) GetMaxSize() int {
+func (q *DefaultWorkQueue) GetMaxSize() int {
 	return q.maxSize
 }
 
-func (q *InstanceWorkQueue) SetMaxSize(size int) {
+func (q *DefaultWorkQueue) SetMaxSize(size int) {
 	q.maxSize = size
 }
