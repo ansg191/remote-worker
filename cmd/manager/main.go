@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"go.uber.org/zap"
 
+	"golang.anshulg.com/popcorntime/go_encoder/api/proto"
 	"golang.anshulg.com/popcorntime/go_encoder/internal/compute"
 )
 
@@ -23,16 +24,17 @@ func run() error {
 		return err
 	}
 
-	pool := compute.NewPool(cfg, logger)
+	pool := compute.NewPool(logger, compute.NewAWSWorkerFactory(logger, cfg, compute.DefaultAWSInstanceParams))
 	defer pool.Close()
 
 	queue := compute.NewQueue(logger, pool, 2)
 
 	info := compute.NewWorkInfo(
 		context.Background(),
-		80,
-		func(ctx context.Context, logger *zap.Logger, req int, instance *compute.Instance) (string, error) {
-			return fmt.Sprintf("%s:%d", instance.Addr.String(), req), nil
+		nil,
+		func(ctx context.Context, logger *zap.Logger, req any, worker compute.Worker) (string, error) {
+			res, err := worker.Worker().Status(ctx, &proto.WorkerStatusRequest{})
+			return res.Msg, err
 		},
 	)
 

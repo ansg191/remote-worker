@@ -4,7 +4,7 @@ func remove[T any](slice []T, i int) []T {
 	return append(slice[:i], slice[i+1:]...)
 }
 
-func removeItem[T comparable](slice []T, item T) []T {
+func removeItem[T Worker](slice []T, item T) []T {
 	i := find(slice, item)
 	if i < 0 {
 		return slice
@@ -13,9 +13,9 @@ func removeItem[T comparable](slice []T, item T) []T {
 	}
 }
 
-func find[T comparable](slice []T, item T) int {
+func find[T Worker](slice []T, item T) int {
 	for i, t := range slice {
-		if t == item {
+		if t.Equals(item) {
 			return i
 		}
 	}

@@ -6,14 +6,14 @@ import (
 	"go.uber.org/zap"
 )
 
-type WorkRunFunc[T, U any] func(ctx context.Context, logger *zap.Logger, req T, instance *Instance) (U, error)
+type WorkRunFunc[T, U any] func(ctx context.Context, logger *zap.Logger, req T, instance Worker) (U, error)
 
 type WorkInfo interface {
 	getCtx() context.Context
 	getReq() any
 	setRes(res any)
 	setErr(err error)
-	run(ctx context.Context, logger *zap.Logger, req any, instance *Instance) (any, error)
+	run(ctx context.Context, logger *zap.Logger, req any, instance Worker) (any, error)
 }
 
 type GenericWorkInfo[T, U any] struct {
@@ -40,8 +40,8 @@ func (w *GenericWorkInfo[T, U]) setErr(err error) {
 	w.Err <- err
 }
 
-func (w *GenericWorkInfo[T, U]) run(ctx context.Context, logger *zap.Logger, req any, instance *Instance) (any, error) {
-	return w.Run(ctx, logger, req.(T), instance)
+func (w *GenericWorkInfo[T, U]) run(ctx context.Context, logger *zap.Logger, req any, worker Worker) (any, error) {
+	return w.Run(ctx, logger, req.(T), worker)
 }
 
 func NewWorkInfo[T, U any](ctx context.Context, request T, runFunc WorkRunFunc[T, U]) *GenericWorkInfo[T, U] {
