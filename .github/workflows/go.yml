@@ -41,10 +41,10 @@ jobs:
       - name: Generate
         run: go generate ./...
 
+      - name: Tests
+        run: go test ./...
+
       - name: Build
         run: |
           go build golang.anshulg.com/popcorntime/go_encoder/cmd/worker
           go build golang.anshulg.com/popcorntime/go_encoder/cmd/manager
-
-      - name: Tests
-        run: go test ./...
