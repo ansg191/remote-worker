@@ -3,7 +3,7 @@ module golang.anshulg.com/popcorntime/go_encoder
 go 1.18
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.16.2
+	github.com/aws/aws-sdk-go-v2 v1.16.3
 	github.com/aws/aws-sdk-go-v2/config v1.15.3
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.5
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.36.0
@@ -14,7 +14,6 @@ require (
 	github.com/xfrr/goffmpeg v0.0.0-20210624103149-5ca2d3062daf
 	go.uber.org/zap v1.21.0
 	google.golang.org/grpc v1.46.0
-	google.golang.org/protobuf v1.27.1
 )
 
 require (
@@ -41,4 +40,5 @@ require (
 	golang.org/x/sys v0.0.0-20210510120138-977fb7262007 // indirect
 	golang.org/x/text v0.3.3 // indirect
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
+	google.golang.org/protobuf v1.28.0 // indirect
 )
