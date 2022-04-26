@@ -37,9 +37,16 @@ var DefaultAWSInstanceParams = &ec2.RunInstancesInput{
 	UserData:         aws.String(base64.StdEncoding.EncodeToString(userData)),
 }
 
+type AWSWorkerEC2Client interface {
+	RunInstances(ctx context.Context, params *ec2.RunInstancesInput, optFns ...func(*ec2.Options)) (*ec2.RunInstancesOutput, error)
+	DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error)
+	DescribeInstanceStatus(ctx context.Context, params *ec2.DescribeInstanceStatusInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstanceStatusOutput, error)
+	TerminateInstances(ctx context.Context, params *ec2.TerminateInstancesInput, optFns ...func(*ec2.Options)) (*ec2.TerminateInstancesOutput, error)
+}
+
 type AWSWorker struct {
 	logger *zap.Logger
-	cfg    aws.Config
+	client AWSWorkerEC2Client
 
 	id   string
 	addr net.Addr
@@ -65,9 +72,7 @@ func (w *AWSWorker) Close() error {
 		}
 	}
 
-	client := ec2.NewFromConfig(w.cfg)
-
-	_, err := client.TerminateInstances(context.Background(), &ec2.TerminateInstancesInput{
+	_, err := w.client.TerminateInstances(context.Background(), &ec2.TerminateInstancesInput{
 		InstanceIds: []string{w.id},
 	})
 	return err
@@ -93,9 +98,7 @@ func (w *AWSWorker) Connect(ctx context.Context) (err error) {
 		}
 	}
 
-	client := ec2.NewFromConfig(w.cfg)
-
-	instances, err := client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+	instances, err := w.client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
 		InstanceIds: []string{w.id},
 	})
 	if err != nil {
@@ -140,9 +143,7 @@ func (w *AWSWorker) Job() proto.JobServiceClient {
 }
 
 func (w *AWSWorker) getInstanceStatus(ctx context.Context) (types.InstanceStateName, error) {
-	cli := ec2.NewFromConfig(w.cfg)
-
-	statuses, err := cli.DescribeInstanceStatus(ctx, &ec2.DescribeInstanceStatusInput{
+	statuses, err := w.client.DescribeInstanceStatus(ctx, &ec2.DescribeInstanceStatusInput{
 		InstanceIds: []string{w.id},
 	})
 	if err != nil {
@@ -225,22 +226,20 @@ func (w *AWSWorker) IsReadyChan(ctx context.Context) <-chan error {
 
 type AWSWorkerFactory struct {
 	logger *zap.Logger
-	cfg    aws.Config
+	client AWSWorkerEC2Client
 	params *ec2.RunInstancesInput
 }
 
-func NewAWSWorkerFactory(logger *zap.Logger, config aws.Config, input *ec2.RunInstancesInput) WorkerFactory {
+func NewAWSWorkerFactory(logger *zap.Logger, client AWSWorkerEC2Client, input *ec2.RunInstancesInput) WorkerFactory {
 	return &AWSWorkerFactory{
 		logger: logger,
-		cfg:    config,
+		client: client,
 		params: input,
 	}
 }
 
 func (f *AWSWorkerFactory) Create(ctx context.Context) (Worker, error) {
-	client := ec2.NewFromConfig(f.cfg)
-
-	instances, err := client.RunInstances(ctx, f.params)
+	instances, err := f.client.RunInstances(ctx, f.params)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +252,7 @@ func (f *AWSWorkerFactory) Create(ctx context.Context) (Worker, error) {
 
 	return &AWSWorker{
 		logger: f.logger,
-		cfg:    f.cfg,
+		client: f.client,
 		id:     aws.ToString(instance.InstanceId),
 	}, nil
 }
