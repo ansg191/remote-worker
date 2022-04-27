@@ -50,18 +50,20 @@ func (p *DefaultPool) Close() (err error) {
 
 func (p *DefaultPool) GetWorker(ctx context.Context) (Worker, error) {
 	p.mtx.Lock()
-	defer p.mtx.Unlock()
+	//defer p.mtx.Unlock()
 
 	if len(p.availableInstances) == 0 {
 		p.logger.Debug("No worker available in pool. Creating new...")
 		worker, err := p.factory.Create(ctx)
 		if err != nil {
+			p.mtx.Unlock()
 			return nil, err
 		}
 
 		p.allInstances = append(p.allInstances, worker)
 
 		p.logger.Debug("Worker created")
+		p.mtx.Unlock()
 
 		return worker, err
 	} else {
@@ -70,10 +72,12 @@ func (p *DefaultPool) GetWorker(ctx context.Context) (Worker, error) {
 		if _, err := worker.IsReady(ctx); err == ErrClosed {
 			// Worker is already closed. Remove from pool
 			p.allInstances = removeItem(p.allInstances, worker)
+			p.mtx.Unlock()
 			return p.GetWorker(ctx)
 		}
 
 		p.logger.Debug("Pool returning existing worker")
+		p.mtx.Unlock()
 		return worker, nil
 	}
 }
@@ -81,6 +85,11 @@ func (p *DefaultPool) GetWorker(ctx context.Context) (Worker, error) {
 func (p *DefaultPool) ReturnWorker(worker Worker) {
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
+
+	if find(p.allInstances, worker) < 0 {
+		// Worker not from this pool, return silently
+		return
+	}
 
 	p.availableInstances = append(p.availableInstances, worker)
 }

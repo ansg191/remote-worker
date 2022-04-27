@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"go.uber.org/zap"
 
 	"golang.anshulg.com/popcorntime/go_encoder/api/proto"
@@ -17,15 +18,19 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer logger.Sync()
+	defer func(logger *zap.Logger) {
+		_ = logger.Sync()
+	}(logger)
 
 	cfg, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
 		return err
 	}
 
-	pool := compute.NewPool(logger, compute.NewAWSWorkerFactory(logger, cfg, compute.DefaultAWSInstanceParams))
-	defer pool.Close()
+	pool := compute.NewPool(logger, compute.NewAWSWorkerFactory(logger, ec2.NewFromConfig(cfg), compute.DefaultAWSInstanceParams, 443))
+	defer func(pool compute.Pool) {
+		_ = pool.Close()
+	}(pool)
 
 	queue := compute.NewQueue(logger, pool, 2)
 

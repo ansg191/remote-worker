@@ -15,7 +15,7 @@ func removeItem[T Worker](slice []T, item T) []T {
 
 func find[T Worker](slice []T, item T) int {
 	for i, t := range slice {
-		if t.Equals(item) {
+		if item.Equals(t) {
 			return i
 		}
 	}

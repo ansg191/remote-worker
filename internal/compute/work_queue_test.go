@@ -2,6 +2,7 @@ package compute
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -154,30 +155,49 @@ func TestDefaultWorkQueue_Add(t *testing.T) {
 		AnyTimes()
 
 	tests := []struct {
-		name string
-		work WorkInfo
+		name   string
+		work   *GenericWorkInfo[any, any]
+		result any
+		err    error
 	}{
 		{
 			name: "string",
-			work: NewWorkInfo(
+			work: NewWorkInfo[any, any](
 				context.Background(),
 				"Hello, World",
-				func(ctx context.Context, logger *zap.Logger, req string, worker Worker) (string, error) {
+				func(ctx context.Context, logger *zap.Logger, req any, worker Worker) (any, error) {
 					m.For(t, "req").Assert(req, m.Equal("Hello, World"))
 					m.For(t, "worker").Assert(worker, m.Equal(mWorker))
 					return req, nil
 				}),
+			result: "Hello, World",
+			err:    nil,
 		},
 		{
 			name: "int",
 			work: NewWorkInfo(
 				context.Background(),
 				5,
-				func(ctx context.Context, logger *zap.Logger, req int, worker Worker) (int, error) {
+				func(ctx context.Context, logger *zap.Logger, req any, worker Worker) (any, error) {
 					m.For(t, "req").Assert(req, m.Equal(5))
 					m.For(t, "worker").Assert(worker, m.Equal(mWorker))
 					return req, nil
 				}),
+			result: 5,
+			err:    nil,
+		},
+		{
+			name: "err",
+			work: NewWorkInfo(
+				context.Background(),
+				5,
+				func(ctx context.Context, logger *zap.Logger, req any, worker Worker) (any, error) {
+					m.For(t, "req").Assert(req, m.Equal(5))
+					m.For(t, "worker").Assert(worker, m.Equal(mWorker))
+					return 0, errors.New("err")
+				}),
+			result: 0,
+			err:    errors.New("err"),
 		},
 	}
 	for _, test := range tests {
@@ -185,6 +205,13 @@ func TestDefaultWorkQueue_Add(t *testing.T) {
 			q := NewQueue(logger, mPool, 5)
 			q.Add(test.work)
 			q.Wait()
+
+			select {
+			case res := <-test.work.Result:
+				m.For(t, "result").Require(res, m.Equal(test.result))
+			case err := <-test.work.Err:
+				m.For(t, "err").Require(err, m.Equal(test.err))
+			}
 		})
 	}
 }
