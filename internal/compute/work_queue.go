@@ -46,7 +46,10 @@ func NewQueue(logger *zap.Logger, pool Pool, maxSize int) WorkQueue {
 
 func (q *DefaultWorkQueue) run() {
 	for {
+		q.mtx.Lock()
 		if len(q.workers) < q.maxSize {
+			q.mtx.Unlock()
+
 			// Wait for work
 			work := <-q.workQueue
 
@@ -71,9 +74,11 @@ func (q *DefaultWorkQueue) run() {
 
 			go func() {
 				defer func(worker Worker) {
-					q.wg.Done()
+					q.mtx.Lock()
+					defer q.mtx.Lock()
 					q.workers = removeItem(q.workers, worker)
 					q.pool.ReturnWorker(worker)
+					q.wg.Done()
 				}(worker)
 
 				q.logger.Debug("Waiting for worker ready", zap.Any("req", work.getReq()))
@@ -98,6 +103,8 @@ func (q *DefaultWorkQueue) run() {
 				}
 				q.logger.Info("Work finished", zap.Any("req", work.getReq()))
 			}()
+		} else {
+			q.mtx.Unlock()
 		}
 	}
 }
@@ -117,5 +124,7 @@ func (q *DefaultWorkQueue) GetMaxSize() int {
 }
 
 func (q *DefaultWorkQueue) SetMaxSize(size int) {
+	q.mtx.Lock()
+	defer q.mtx.Unlock()
 	q.maxSize = size
 }

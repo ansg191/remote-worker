@@ -216,9 +216,8 @@ func (w *AWSWorker) IsReadyChan(ctx context.Context, opts ...compute.ReadyOption
 		opt(options)
 	}
 
-	ticker := time.NewTicker(options.TickerInterval)
-
 	go func() {
+		ticker := time.NewTicker(options.TickerInterval)
 		for {
 			select {
 			case <-ctx.Done():

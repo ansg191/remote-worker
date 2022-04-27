@@ -531,10 +531,7 @@ func TestAWSWorker_IsReady(t *testing.T) {
 			port:   port + 1, // <- CHANGE HERE
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-		defer cancel()
-
-		ready, err := worker.IsReady(ctx)
+		ready, err := worker.IsReady(context.Background(), compute.WithConnTimeout(1*time.Millisecond))
 		m.For(t, "err").Assert(err, m.BeNil())
 		m.For(t, "ready").Assert(ready, m.Equal(false))
 	})
@@ -558,5 +555,53 @@ func TestAWSWorker_IsReady(t *testing.T) {
 		ready, err := worker.IsReady(context.Background())
 		m.For(t, "err").Assert(err, m.Equal(compute.ErrClosed))
 		m.For(t, "ready").Assert(ready, m.Equal(false))
+	})
+}
+
+func TestAWSWorker_IsReadyChan(t *testing.T) {
+	addr, _ := grpcServer(t)
+
+	ip := addr.AddrPort().Addr()
+	port := addr.AddrPort().Port()
+
+	logger := zaptest.NewLogger(t)
+
+	ctrl := gomock.NewController(t)
+	t.Cleanup(func() {
+		ctrl.Finish()
+	})
+
+	t.Run("normal behavior", func(t *testing.T) {
+		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
+		mAWSClient.EXPECT().
+			DescribeInstances(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&ec2.DescribeInstancesOutput{
+				Reservations: []types.Reservation{
+					{Instances: []types.Instance{{
+						PublicIpAddress: aws.String(ip.String()),
+					}}},
+				},
+			}, nil)
+		mAWSClient.EXPECT().
+			DescribeInstanceStatus(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&ec2.DescribeInstanceStatusOutput{
+				InstanceStatuses: []types.InstanceStatus{{
+					InstanceState: &types.InstanceState{
+						Name: types.InstanceStateNameRunning,
+					},
+				}},
+			}, nil)
+
+		worker := &AWSWorker{
+			logger: logger,
+			client: mAWSClient,
+			id:     "id",
+			port:   port,
+		}
+
+		ch := worker.IsReadyChan(context.Background(),
+			compute.WithTickerInterval(100*time.Millisecond),
+			compute.WithConnTimeout(100*time.Millisecond))
+		m.For(t, "ch err").Assert(<-ch, m.BeNil())
 	})
 }
