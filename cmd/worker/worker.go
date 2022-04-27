@@ -23,7 +23,7 @@ func (w *WorkerServer) Status(context.Context, *proto.WorkerStatusRequest) (*pro
 }
 
 //goland:noinspection GoBoolExpressions
-func (w *WorkerServer) Info(_ context.Context, _ *proto.WorkerInfoRequest) (*proto.WorkerInfoResponse, error) {
+func (w *WorkerServer) Info(_ context.Context, req *proto.WorkerInfoRequest) (*proto.WorkerInfoResponse, error) {
 	res := &proto.WorkerInfoResponse{}
 
 	// Memory
@@ -210,7 +210,7 @@ func (w *WorkerServer) Info(_ context.Context, _ *proto.WorkerInfoRequest) (*pro
 		info := &proto.PCIInfo{}
 
 		for _, device := range p.Devices {
-			dInfo := pciDeviceToProto(device)
+			dInfo := pciDeviceToProto(req, device)
 
 			info.Devices = append(info.Devices, dInfo)
 		}
@@ -250,7 +250,7 @@ func (w *WorkerServer) Info(_ context.Context, _ *proto.WorkerInfoRequest) (*pro
 				cardInfo := &proto.GPUInfo_Card{
 					Index:   uint32(card.Index),
 					Address: card.Address,
-					Device:  pciDeviceToProto(card.DeviceInfo),
+					Device:  pciDeviceToProto(nil, card.DeviceInfo),
 				}
 
 				info.Card = append(info.Card, cardInfo)
@@ -263,9 +263,9 @@ func (w *WorkerServer) Info(_ context.Context, _ *proto.WorkerInfoRequest) (*pro
 	return res, nil
 }
 
-func pciDeviceToProto(device *pci.Device) *proto.PCIInfo_Device {
+func pciDeviceToProto(req *proto.WorkerInfoRequest, device *pci.Device) *proto.PCIInfo_Device {
 	info := &proto.PCIInfo_Device{
-		Vendor:    pciVendorToProto(device.Vendor),
+		Vendor:    pciVendorToProto(req, device.Vendor),
 		Product:   pciProductToProto(device.Product),
 		Subsystem: pciProductToProto(device.Subsystem),
 		Class:     pciClassToProto(device.Class),
@@ -278,15 +278,17 @@ func pciDeviceToProto(device *pci.Device) *proto.PCIInfo_Device {
 	return info
 }
 
-func pciVendorToProto(vendor *pcidb.Vendor) *proto.PCIInfo_Vendor {
+func pciVendorToProto(req *proto.WorkerInfoRequest, vendor *pcidb.Vendor) *proto.PCIInfo_Vendor {
 	info := &proto.PCIInfo_Vendor{
 		Id:       vendor.ID,
 		Name:     vendor.Name,
 		Products: nil,
 	}
 
-	for _, product := range vendor.Products {
-		info.Products = append(info.Products, pciProductToProto(product))
+	if req.IncludeVendorProducts {
+		for _, product := range vendor.Products {
+			info.Products = append(info.Products, pciProductToProto(product))
+		}
 	}
 
 	return info

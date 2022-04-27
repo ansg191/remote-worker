@@ -14,7 +14,9 @@ message WorkerStatusResponse {
   string msg = 1;
 }
 
-message WorkerInfoRequest {}
+message WorkerInfoRequest {
+  bool includeVendorProducts = 1;
+}
 message WorkerInfoResponse {
   reserved 4;
   MemoryInfo memory = 1;
