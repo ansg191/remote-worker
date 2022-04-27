@@ -1,4 +1,4 @@
-package compute
+package aws
 
 import (
 	"context"
@@ -15,6 +15,8 @@ import (
 	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"golang.anshulg.com/popcorntime/go_encoder/internal/compute"
 )
 
 func grpcServer(t *testing.T) (*net.TCPAddr, *grpc.Server) {
@@ -156,7 +158,7 @@ func TestAWSWorker_Close(t *testing.T) {
 		m.For(t, "close err").Require(err, m.BeNil())
 
 		err = worker.Close()
-		m.For(t, "close err 2").Assert(err, m.Equal(ErrClosed))
+		m.For(t, "close err 2").Assert(err, m.Equal(compute.ErrClosed))
 	})
 
 	t.Run("close connected worker", func(t *testing.T) {
@@ -217,7 +219,7 @@ func TestAWSWorker_Equals(t *testing.T) {
 	tests := []struct {
 		name   string
 		w1     *AWSWorker
-		w2     Worker
+		w2     compute.Worker
 		expect bool
 	}{
 		{
@@ -247,7 +249,7 @@ func TestAWSWorker_Equals(t *testing.T) {
 		{
 			name:   "different worker",
 			w1:     &AWSWorker{id: "id"},
-			w2:     &MockWorker{},
+			w2:     &compute.MockWorker{},
 			expect: false,
 		},
 	}
@@ -338,7 +340,7 @@ func TestAWSWorker_Connect(t *testing.T) {
 		m.For(t, "close err").Require(err, m.BeNil())
 
 		err = worker.Connect(context.Background())
-		m.For(t, "err").Assert(err, m.Equal(ErrClosed))
+		m.For(t, "err").Assert(err, m.Equal(compute.ErrClosed))
 	})
 
 	t.Run("missing ip", func(t *testing.T) {

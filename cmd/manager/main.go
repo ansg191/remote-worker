@@ -11,6 +11,7 @@ import (
 
 	"golang.anshulg.com/popcorntime/go_encoder/api/proto"
 	"golang.anshulg.com/popcorntime/go_encoder/internal/compute"
+	"golang.anshulg.com/popcorntime/go_encoder/internal/worker/aws"
 )
 
 func run() error {
@@ -27,7 +28,7 @@ func run() error {
 		return err
 	}
 
-	pool := compute.NewPool(logger, compute.NewAWSWorkerFactory(logger, ec2.NewFromConfig(cfg), compute.DefaultAWSInstanceParams, 443))
+	pool := compute.NewPool(logger, aws.NewAWSWorkerFactory(logger, ec2.NewFromConfig(cfg), aws.DefaultAWSInstanceParams, 443))
 	defer func(pool compute.Pool) {
 		_ = pool.Close()
 	}(pool)

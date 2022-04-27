@@ -1,4 +1,4 @@
-package compute
+package aws
 
 import (
 	"context"
@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"golang.anshulg.com/popcorntime/go_encoder/api/proto"
+	"golang.anshulg.com/popcorntime/go_encoder/internal/compute"
 )
 
 //go:embed userdata.sh
@@ -61,7 +62,7 @@ type AWSWorker struct {
 
 func (w *AWSWorker) Close() error {
 	if w.closed {
-		return ErrClosed
+		return compute.ErrClosed
 	}
 
 	w.closed = true
@@ -80,7 +81,7 @@ func (w *AWSWorker) Close() error {
 	return err
 }
 
-func (w *AWSWorker) Equals(other Worker) bool {
+func (w *AWSWorker) Equals(other compute.Worker) bool {
 	switch v := other.(type) {
 	case *AWSWorker:
 		return w.id == v.id
@@ -111,7 +112,7 @@ func (w *AWSWorker) getIP(ctx context.Context) (netip.Addr, error) {
 
 func (w *AWSWorker) Connect(ctx context.Context) (err error) {
 	if w.closed {
-		return ErrClosed
+		return compute.ErrClosed
 	}
 	if w.conn != nil {
 		_ = w.conn.Close()
@@ -168,7 +169,7 @@ func (w *AWSWorker) getInstanceStatus(ctx context.Context) (types.InstanceStateN
 
 func (w *AWSWorker) IsReady(ctx context.Context) (bool, error) {
 	if w.closed {
-		return false, ErrClosed
+		return false, compute.ErrClosed
 	}
 
 	status, err := w.getInstanceStatus(ctx)
@@ -235,7 +236,7 @@ type AWSWorkerFactory struct {
 	port   uint16
 }
 
-func NewAWSWorkerFactory(logger *zap.Logger, client AWSWorkerEC2Client, input *ec2.RunInstancesInput, port uint16) WorkerFactory {
+func NewAWSWorkerFactory(logger *zap.Logger, client AWSWorkerEC2Client, input *ec2.RunInstancesInput, port uint16) compute.WorkerFactory {
 	return &AWSWorkerFactory{
 		logger: logger,
 		client: client,
@@ -244,7 +245,7 @@ func NewAWSWorkerFactory(logger *zap.Logger, client AWSWorkerEC2Client, input *e
 	}
 }
 
-func (f *AWSWorkerFactory) Create(ctx context.Context) (Worker, error) {
+func (f *AWSWorkerFactory) Create(ctx context.Context) (compute.Worker, error) {
 	instances, err := f.client.RunInstances(ctx, f.params)
 	if err != nil {
 		return nil, err
