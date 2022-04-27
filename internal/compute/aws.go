@@ -5,8 +5,7 @@ import (
 	_ "embed"
 	"encoding/base64"
 	"errors"
-	"fmt"
-	"net"
+	"net/netip"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -49,7 +48,9 @@ type AWSWorker struct {
 	client AWSWorkerEC2Client
 
 	id   string
-	addr net.Addr
+	port uint16
+
+	addr netip.AddrPort
 
 	conn   *grpc.ClientConn
 	worker proto.WorkerServiceClient
@@ -67,6 +68,7 @@ func (w *AWSWorker) Close() error {
 
 	if w.conn != nil {
 		err := w.conn.Close()
+		w.conn = nil
 		if err != nil {
 			w.logger.Error("error closing grpc connection")
 		}
@@ -87,40 +89,42 @@ func (w *AWSWorker) Equals(other Worker) bool {
 	}
 }
 
+func (w *AWSWorker) getIP(ctx context.Context) (netip.Addr, error) {
+	instances, err := w.client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+		InstanceIds: []string{w.id},
+	})
+	if err != nil {
+		return netip.IPv4Unspecified(), err
+	}
+
+	if len(instances.Reservations) < 1 {
+		return netip.IPv4Unspecified(), errors.New("instance not found")
+	}
+	if len(instances.Reservations[0].Instances) < 1 {
+		return netip.IPv4Unspecified(), errors.New("instance not found")
+	}
+
+	instance := instances.Reservations[0].Instances[0]
+
+	return netip.ParseAddr(aws.ToString(instance.PublicIpAddress))
+}
+
 func (w *AWSWorker) Connect(ctx context.Context) (err error) {
 	if w.closed {
 		return ErrClosed
 	}
 	if w.conn != nil {
-		err := w.conn.Close()
-		if err != nil {
-			w.logger.Error("error closing conn", zap.Error(err))
-		}
+		_ = w.conn.Close()
 	}
 
-	instances, err := w.client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
-		InstanceIds: []string{w.id},
-	})
+	ip, err := w.getIP(ctx)
 	if err != nil {
 		return err
 	}
 
-	if len(instances.Reservations) < 1 {
-		return errors.New("instance not found")
-	}
-	if len(instances.Reservations[0].Instances) < 1 {
-		return errors.New("instance not found")
-	}
+	w.addr = netip.AddrPortFrom(ip, w.port)
 
-	instance := instances.Reservations[0].Instances[0]
-
-	w.addr, err = net.ResolveIPAddr("ip4", aws.ToString(instance.PublicIpAddress))
-	if err != nil {
-		return err
-	}
-
-	addrStr := fmt.Sprintf("%s:%d", w.addr.String(), 443)
-	w.conn, err = grpc.DialContext(ctx, addrStr,
+	w.conn, err = grpc.DialContext(ctx, w.addr.String(),
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
@@ -228,13 +232,15 @@ type AWSWorkerFactory struct {
 	logger *zap.Logger
 	client AWSWorkerEC2Client
 	params *ec2.RunInstancesInput
+	port   uint16
 }
 
-func NewAWSWorkerFactory(logger *zap.Logger, client AWSWorkerEC2Client, input *ec2.RunInstancesInput) WorkerFactory {
+func NewAWSWorkerFactory(logger *zap.Logger, client AWSWorkerEC2Client, input *ec2.RunInstancesInput, port uint16) WorkerFactory {
 	return &AWSWorkerFactory{
 		logger: logger,
 		client: client,
 		params: input,
+		port:   port,
 	}
 }
 
@@ -254,5 +260,6 @@ func (f *AWSWorkerFactory) Create(ctx context.Context) (Worker, error) {
 		logger: f.logger,
 		client: f.client,
 		id:     aws.ToString(instance.InstanceId),
+		port:   f.port,
 	}, nil
 }
