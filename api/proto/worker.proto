@@ -139,6 +139,7 @@ message PCIInfo {
     Class.SubClass subclass = 5;
     Class.ProgrammingInterface pi = 6;
     string driver = 7;
+    string address = 8;
   }
   repeated Device devices = 1;
 
@@ -178,7 +179,6 @@ message GPUInfo {
     uint32 index = 1;
     string address = 2;
     PCIInfo.Device device = 3;
-    TopologyInfo.Node node = 4;
   }
   repeated Card card = 1;
 }

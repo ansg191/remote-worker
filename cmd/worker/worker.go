@@ -227,15 +227,34 @@ func (w *WorkerServer) Info(_ context.Context, _ *proto.WorkerInfoRequest) (*pro
 
 		info := &proto.GPUInfo{}
 
-		for _, card := range gpu.GraphicsCards {
-			cardInfo := &proto.GPUInfo_Card{
-				Index:   uint32(card.Index),
-				Address: card.Address,
-				Device:  pciDeviceToProto(card.DeviceInfo),
-				Node:    nil,
+		if len(gpu.GraphicsCards) == 0 {
+			// https://github.com/jaypipes/ghw/blob/2ea05cb6c17c12a04d287cdab9c23df095de52ae/pkg/gpu/gpu_linux.go#L31
+			// GPU Device info might not be stored in /sys/class/drm. In this case, we need
+			// to sift through the pci device information from above for class 03 Devices
+			// (Display Controllers). See https://pci-ids.ucw.cz/read/PD/ for PCI class
+			// information
+			var i uint32 = 0
+			for _, device := range res.Pci.Devices {
+				if device.Class.Id == "03" {
+					cardInfo := &proto.GPUInfo_Card{
+						Index:   i,
+						Address: device.Address,
+						Device:  device,
+					}
+					i += 1
+					info.Card = append(info.Card, cardInfo)
+				}
 			}
+		} else {
+			for _, card := range gpu.GraphicsCards {
+				cardInfo := &proto.GPUInfo_Card{
+					Index:   uint32(card.Index),
+					Address: card.Address,
+					Device:  pciDeviceToProto(card.DeviceInfo),
+				}
 
-			info.Card = append(info.Card, cardInfo)
+				info.Card = append(info.Card, cardInfo)
+			}
 		}
 
 		res.Gpu = info
@@ -253,6 +272,7 @@ func pciDeviceToProto(device *pci.Device) *proto.PCIInfo_Device {
 		Subclass:  pciSubClassToProto(device.Subclass),
 		Pi:        pciPIToProto(device.ProgrammingInterface),
 		Driver:    device.Driver,
+		Address:   device.Address,
 	}
 
 	return info
