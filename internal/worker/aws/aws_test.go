@@ -538,4 +538,25 @@ func TestAWSWorker_IsReady(t *testing.T) {
 		m.For(t, "err").Assert(err, m.BeNil())
 		m.For(t, "ready").Assert(ready, m.Equal(false))
 	})
+
+	t.Run("already closed", func(t *testing.T) {
+		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
+		mAWSClient.EXPECT().
+			TerminateInstances(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, nil)
+
+		worker := &AWSWorker{
+			logger: logger,
+			client: mAWSClient,
+			id:     "id",
+			port:   port,
+		}
+
+		err := worker.Close()
+		m.For(t, "close").For("err").Require(err, m.BeNil())
+
+		ready, err := worker.IsReady(context.Background())
+		m.For(t, "err").Assert(err, m.Equal(compute.ErrClosed))
+		m.For(t, "ready").Assert(ready, m.Equal(false))
+	})
 }
