@@ -167,7 +167,7 @@ func (w *AWSWorker) getInstanceStatus(ctx context.Context) (types.InstanceStateN
 	return types.InstanceStateNamePending, nil
 }
 
-func (w *AWSWorker) IsReady(ctx context.Context) (bool, error) {
+func (w *AWSWorker) IsReady(ctx context.Context, opts ...func(options *compute.ReadyOptions)) (bool, error) {
 	if w.closed {
 		return false, compute.ErrClosed
 	}
@@ -181,7 +181,15 @@ func (w *AWSWorker) IsReady(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	connCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	options := &compute.ReadyOptions{
+		ConnTimeout: 10 * time.Second,
+	}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	connCtx, cancel := context.WithTimeout(ctx, options.ConnTimeout)
 	defer cancel()
 
 	err = w.Connect(connCtx)
@@ -196,10 +204,19 @@ func (w *AWSWorker) IsReady(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-func (w *AWSWorker) IsReadyChan(ctx context.Context) <-chan error {
+func (w *AWSWorker) IsReadyChan(ctx context.Context, opts ...func(options *compute.ReadyOptions)) <-chan error {
 	ch := make(chan error)
 
-	ticker := time.NewTicker(15 * time.Second)
+	options := &compute.ReadyOptions{
+		TickerInterval: 15 * time.Second,
+		ConnTimeout:    10 * time.Second,
+	}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	ticker := time.NewTicker(options.TickerInterval)
 
 	go func() {
 		for {
@@ -209,7 +226,7 @@ func (w *AWSWorker) IsReadyChan(ctx context.Context) <-chan error {
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				isReady, err := w.IsReady(ctx)
+				isReady, err := w.IsReady(ctx, opts...)
 				if err != nil {
 					if err.Error() == "no instance statuses returned" {
 						continue
