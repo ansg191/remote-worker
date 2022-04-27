@@ -37,7 +37,7 @@ func grpcServer(t *testing.T) (*net.TCPAddr, *grpc.Server) {
 	return l.Addr().(*net.TCPAddr), gsrv
 }
 
-func TestNewAWSWorkerFactory(t *testing.T) {
+func TestNewWorkerFactory(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 
 	ctrl := gomock.NewController(t)
@@ -45,18 +45,18 @@ func TestNewAWSWorkerFactory(t *testing.T) {
 		ctrl.Finish()
 	})
 
-	mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
+	mClient := NewMockWorkerEC2Client(ctrl)
 
-	factoryI := NewAWSWorkerFactory(logger, mAWSClient, DefaultAWSInstanceParams, 443)
+	factoryI := NewWorkerFactory(logger, mClient, DefaultInstanceParams, 443)
 
-	factory := factoryI.(*AWSWorkerFactory)
+	factory := factoryI.(*WorkerFactory)
 
 	m.For(t, "factory").For("input").
-		Assert(factory.params, m.Equal(DefaultAWSInstanceParams))
+		Assert(factory.params, m.Equal(DefaultInstanceParams))
 	m.For(t, "factory").For("port").Assert(factory.port, m.Equal(uint16(443)))
 }
 
-func TestAWSWorkerFactory_Create(t *testing.T) {
+func TestWorkerFactory_Create(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 
 	ctrl := gomock.NewController(t)
@@ -65,22 +65,22 @@ func TestAWSWorkerFactory_Create(t *testing.T) {
 	})
 
 	t.Run("normal behavior", func(t *testing.T) {
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			RunInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&ec2.RunInstancesOutput{
 				Instances: []types.Instance{{InstanceId: aws.String("i-123456")}},
 			}, nil)
 
-		factory := NewAWSWorkerFactory(logger, mAWSClient, DefaultAWSInstanceParams, 443)
+		factory := NewWorkerFactory(logger, mClient, DefaultInstanceParams, 443)
 
 		workerI, err := factory.Create(context.Background())
 
 		m.For(t, "create err").Assert(err, m.BeNil())
 
-		worker := workerI.(*AWSWorker)
+		worker := workerI.(*Worker)
 
-		m.For(t, "worker").For("client").Assert(worker.client, m.Equal(mAWSClient))
+		m.For(t, "worker").For("client").Assert(worker.client, m.Equal(mClient))
 		m.For(t, "worker").For("id").Assert(worker.id, m.Equal("i-123456"))
 		m.For(t, "worker").For("port").Assert(worker.port, m.Equal(uint16(443)))
 	})
@@ -88,12 +88,12 @@ func TestAWSWorkerFactory_Create(t *testing.T) {
 	t.Run("error", func(t *testing.T) {
 		expectedErr := errors.New("something bad happened")
 
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			RunInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, expectedErr)
 
-		factory := NewAWSWorkerFactory(logger, mAWSClient, DefaultAWSInstanceParams, 443)
+		factory := NewWorkerFactory(logger, mClient, DefaultInstanceParams, 443)
 
 		workerI, err := factory.Create(context.Background())
 
@@ -102,14 +102,14 @@ func TestAWSWorkerFactory_Create(t *testing.T) {
 	})
 
 	t.Run("no instance returned", func(t *testing.T) {
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			RunInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&ec2.RunInstancesOutput{
 				Instances: []types.Instance{},
 			}, nil)
 
-		factory := NewAWSWorkerFactory(logger, mAWSClient, DefaultAWSInstanceParams, 443)
+		factory := NewWorkerFactory(logger, mClient, DefaultInstanceParams, 443)
 
 		workerI, err := factory.Create(context.Background())
 
@@ -118,7 +118,7 @@ func TestAWSWorkerFactory_Create(t *testing.T) {
 	})
 }
 
-func TestAWSWorker_Close(t *testing.T) {
+func TestWorker_Close(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 
 	ctrl := gomock.NewController(t)
@@ -127,14 +127,14 @@ func TestAWSWorker_Close(t *testing.T) {
 	})
 
 	t.Run("close new worker", func(t *testing.T) {
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			TerminateInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, nil)
 
-		worker := &AWSWorker{
+		worker := &Worker{
 			logger: logger,
-			client: mAWSClient,
+			client: mClient,
 			id:     "id",
 		}
 
@@ -143,14 +143,14 @@ func TestAWSWorker_Close(t *testing.T) {
 	})
 
 	t.Run("double close worker", func(t *testing.T) {
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			TerminateInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, nil)
 
-		worker := &AWSWorker{
+		worker := &Worker{
 			logger: logger,
-			client: mAWSClient,
+			client: mClient,
 			id:     "id",
 		}
 
@@ -164,14 +164,14 @@ func TestAWSWorker_Close(t *testing.T) {
 	t.Run("close connected worker", func(t *testing.T) {
 		addr, _ := grpcServer(t)
 
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			TerminateInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, nil)
 
-		worker := &AWSWorker{
+		worker := &Worker{
 			logger: logger,
-			client: mAWSClient,
+			client: mClient,
 			id:     "id",
 		}
 
@@ -190,14 +190,14 @@ func TestAWSWorker_Close(t *testing.T) {
 	t.Run("close connected worker grpc error", func(t *testing.T) {
 		addr, _ := grpcServer(t)
 
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			TerminateInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, nil)
 
-		worker := &AWSWorker{
+		worker := &Worker{
 			logger: logger,
-			client: mAWSClient,
+			client: mClient,
 			id:     "id",
 		}
 
@@ -215,40 +215,40 @@ func TestAWSWorker_Close(t *testing.T) {
 	})
 }
 
-func TestAWSWorker_Equals(t *testing.T) {
+func TestWorker_Equals(t *testing.T) {
 	tests := []struct {
 		name   string
-		w1     *AWSWorker
+		w1     *Worker
 		w2     compute.Worker
 		expect bool
 	}{
 		{
 			name:   "same",
-			w1:     &AWSWorker{id: "id"},
-			w2:     &AWSWorker{id: "id"},
+			w1:     &Worker{id: "id"},
+			w2:     &Worker{id: "id"},
 			expect: true,
 		},
 		{
 			name:   "different",
-			w1:     &AWSWorker{id: "id"},
-			w2:     &AWSWorker{id: "id2"},
+			w1:     &Worker{id: "id"},
+			w2:     &Worker{id: "id2"},
 			expect: false,
 		},
 		{
 			name:   "different2",
-			w1:     &AWSWorker{id: "id2"},
-			w2:     &AWSWorker{id: "id"},
+			w1:     &Worker{id: "id2"},
+			w2:     &Worker{id: "id"},
 			expect: false,
 		},
 		{
 			name:   "nil",
-			w1:     &AWSWorker{id: "id"},
+			w1:     &Worker{id: "id"},
 			w2:     nil,
 			expect: false,
 		},
 		{
 			name:   "different worker",
-			w1:     &AWSWorker{id: "id"},
+			w1:     &Worker{id: "id"},
 			w2:     &compute.MockWorker{},
 			expect: false,
 		},
@@ -260,7 +260,7 @@ func TestAWSWorker_Equals(t *testing.T) {
 	}
 }
 
-func TestAWSWorker_Connect(t *testing.T) {
+func TestWorker_Connect(t *testing.T) {
 	addr, _ := grpcServer(t)
 
 	ip := addr.AddrPort().Addr()
@@ -274,8 +274,8 @@ func TestAWSWorker_Connect(t *testing.T) {
 	})
 
 	t.Run("normal behavior", func(t *testing.T) {
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			DescribeInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&ec2.DescribeInstancesOutput{
 				Reservations: []types.Reservation{
@@ -285,9 +285,9 @@ func TestAWSWorker_Connect(t *testing.T) {
 				},
 			}, nil)
 
-		worker := &AWSWorker{
+		worker := &Worker{
 			logger: logger,
-			client: mAWSClient,
+			client: mClient,
 			id:     "id",
 			port:   port,
 		}
@@ -297,8 +297,8 @@ func TestAWSWorker_Connect(t *testing.T) {
 	})
 
 	t.Run("double connect", func(t *testing.T) {
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			DescribeInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&ec2.DescribeInstancesOutput{
 				Reservations: []types.Reservation{
@@ -309,9 +309,9 @@ func TestAWSWorker_Connect(t *testing.T) {
 			}, nil).
 			Times(2)
 
-		worker := &AWSWorker{
+		worker := &Worker{
 			logger: logger,
-			client: mAWSClient,
+			client: mClient,
 			id:     "id",
 			port:   port,
 		}
@@ -324,14 +324,14 @@ func TestAWSWorker_Connect(t *testing.T) {
 	})
 
 	t.Run("connect to closed", func(t *testing.T) {
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			TerminateInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, nil)
 
-		worker := &AWSWorker{
+		worker := &Worker{
 			logger: logger,
-			client: mAWSClient,
+			client: mClient,
 			id:     "id",
 			port:   port,
 		}
@@ -344,8 +344,8 @@ func TestAWSWorker_Connect(t *testing.T) {
 	})
 
 	t.Run("missing ip", func(t *testing.T) {
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			DescribeInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&ec2.DescribeInstancesOutput{
 				Reservations: []types.Reservation{
@@ -355,9 +355,9 @@ func TestAWSWorker_Connect(t *testing.T) {
 				},
 			}, nil)
 
-		worker := &AWSWorker{
+		worker := &Worker{
 			logger: logger,
-			client: mAWSClient,
+			client: mClient,
 			id:     "id",
 			port:   port,
 		}
@@ -370,14 +370,14 @@ func TestAWSWorker_Connect(t *testing.T) {
 	t.Run("aws error", func(t *testing.T) {
 		expectedErr := errors.New("something bad happened")
 
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			DescribeInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, expectedErr)
 
-		worker := &AWSWorker{
+		worker := &Worker{
 			logger: logger,
-			client: mAWSClient,
+			client: mClient,
 			id:     "id",
 			port:   port,
 		}
@@ -387,8 +387,8 @@ func TestAWSWorker_Connect(t *testing.T) {
 	})
 
 	t.Run("connection failure", func(t *testing.T) {
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			DescribeInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&ec2.DescribeInstancesOutput{
 				Reservations: []types.Reservation{
@@ -398,9 +398,9 @@ func TestAWSWorker_Connect(t *testing.T) {
 				},
 			}, nil)
 
-		worker := &AWSWorker{
+		worker := &Worker{
 			logger: logger,
-			client: mAWSClient,
+			client: mClient,
 			id:     "id",
 			port:   port + 1, // <- CHANGE HERE!!!
 		}
@@ -413,7 +413,7 @@ func TestAWSWorker_Connect(t *testing.T) {
 	})
 }
 
-func TestAWSWorker_IsReady(t *testing.T) {
+func TestWorker_IsReady(t *testing.T) {
 	addr, _ := grpcServer(t)
 
 	ip := addr.AddrPort().Addr()
@@ -427,8 +427,8 @@ func TestAWSWorker_IsReady(t *testing.T) {
 	})
 
 	t.Run("normal behavior", func(t *testing.T) {
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			DescribeInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&ec2.DescribeInstancesOutput{
 				Reservations: []types.Reservation{
@@ -437,7 +437,7 @@ func TestAWSWorker_IsReady(t *testing.T) {
 					}}},
 				},
 			}, nil)
-		mAWSClient.EXPECT().
+		mClient.EXPECT().
 			DescribeInstanceStatus(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&ec2.DescribeInstanceStatusOutput{
 				InstanceStatuses: []types.InstanceStatus{{
@@ -447,9 +447,9 @@ func TestAWSWorker_IsReady(t *testing.T) {
 				}},
 			}, nil)
 
-		worker := &AWSWorker{
+		worker := &Worker{
 			logger: logger,
-			client: mAWSClient,
+			client: mClient,
 			id:     "id",
 			port:   port,
 		}
@@ -460,8 +460,8 @@ func TestAWSWorker_IsReady(t *testing.T) {
 	})
 
 	t.Run("pending status", func(t *testing.T) {
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			DescribeInstanceStatus(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&ec2.DescribeInstanceStatusOutput{
 				InstanceStatuses: []types.InstanceStatus{{
@@ -471,9 +471,9 @@ func TestAWSWorker_IsReady(t *testing.T) {
 				}},
 			}, nil)
 
-		worker := &AWSWorker{
+		worker := &Worker{
 			logger: logger,
-			client: mAWSClient,
+			client: mClient,
 			id:     "id",
 			port:   port,
 		}
@@ -486,14 +486,14 @@ func TestAWSWorker_IsReady(t *testing.T) {
 	t.Run("status error", func(t *testing.T) {
 		expectedErr := errors.New("something bad happened")
 
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			DescribeInstanceStatus(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, expectedErr)
 
-		worker := &AWSWorker{
+		worker := &Worker{
 			logger: logger,
-			client: mAWSClient,
+			client: mClient,
 			id:     "id",
 			port:   port,
 		}
@@ -504,8 +504,8 @@ func TestAWSWorker_IsReady(t *testing.T) {
 	})
 
 	t.Run("connection timeout", func(t *testing.T) {
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			DescribeInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&ec2.DescribeInstancesOutput{
 				Reservations: []types.Reservation{
@@ -514,7 +514,7 @@ func TestAWSWorker_IsReady(t *testing.T) {
 					}}},
 				},
 			}, nil)
-		mAWSClient.EXPECT().
+		mClient.EXPECT().
 			DescribeInstanceStatus(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&ec2.DescribeInstanceStatusOutput{
 				InstanceStatuses: []types.InstanceStatus{{
@@ -524,9 +524,9 @@ func TestAWSWorker_IsReady(t *testing.T) {
 				}},
 			}, nil)
 
-		worker := &AWSWorker{
+		worker := &Worker{
 			logger: logger,
-			client: mAWSClient,
+			client: mClient,
 			id:     "id",
 			port:   port + 1, // <- CHANGE HERE
 		}
@@ -537,14 +537,14 @@ func TestAWSWorker_IsReady(t *testing.T) {
 	})
 
 	t.Run("already closed", func(t *testing.T) {
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			TerminateInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, nil)
 
-		worker := &AWSWorker{
+		worker := &Worker{
 			logger: logger,
-			client: mAWSClient,
+			client: mClient,
 			id:     "id",
 			port:   port,
 		}
@@ -558,7 +558,7 @@ func TestAWSWorker_IsReady(t *testing.T) {
 	})
 }
 
-func TestAWSWorker_IsReadyChan(t *testing.T) {
+func TestWorker_IsReadyChan(t *testing.T) {
 	addr, _ := grpcServer(t)
 
 	ip := addr.AddrPort().Addr()
@@ -572,8 +572,8 @@ func TestAWSWorker_IsReadyChan(t *testing.T) {
 	})
 
 	t.Run("normal behavior", func(t *testing.T) {
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			DescribeInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&ec2.DescribeInstancesOutput{
 				Reservations: []types.Reservation{
@@ -583,7 +583,7 @@ func TestAWSWorker_IsReadyChan(t *testing.T) {
 				},
 			}, nil).
 			AnyTimes()
-		mAWSClient.EXPECT().
+		mClient.EXPECT().
 			DescribeInstanceStatus(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&ec2.DescribeInstanceStatusOutput{
 				InstanceStatuses: []types.InstanceStatus{{
@@ -594,9 +594,9 @@ func TestAWSWorker_IsReadyChan(t *testing.T) {
 			}, nil).
 			AnyTimes()
 
-		worker := &AWSWorker{
+		worker := &Worker{
 			logger: logger,
-			client: mAWSClient,
+			client: mClient,
 			id:     "id",
 			port:   port,
 		}
@@ -608,8 +608,8 @@ func TestAWSWorker_IsReadyChan(t *testing.T) {
 	})
 
 	t.Run("double check", func(t *testing.T) {
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			DescribeInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&ec2.DescribeInstancesOutput{
 				Reservations: []types.Reservation{
@@ -619,7 +619,7 @@ func TestAWSWorker_IsReadyChan(t *testing.T) {
 				},
 			}, nil).
 			AnyTimes()
-		mAWSClient.EXPECT().
+		mClient.EXPECT().
 			DescribeInstanceStatus(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&ec2.DescribeInstanceStatusOutput{
 				InstanceStatuses: []types.InstanceStatus{{
@@ -628,7 +628,7 @@ func TestAWSWorker_IsReadyChan(t *testing.T) {
 					},
 				}},
 			}, nil).
-			After(mAWSClient.EXPECT().
+			After(mClient.EXPECT().
 				DescribeInstanceStatus(gomock.Any(), gomock.Any(), gomock.Any()).
 				Return(&ec2.DescribeInstanceStatusOutput{
 					InstanceStatuses: []types.InstanceStatus{{
@@ -640,9 +640,9 @@ func TestAWSWorker_IsReadyChan(t *testing.T) {
 				Times(1)).
 			AnyTimes()
 
-		worker := &AWSWorker{
+		worker := &Worker{
 			logger: logger,
-			client: mAWSClient,
+			client: mClient,
 			id:     "id",
 			port:   port,
 		}
@@ -654,8 +654,8 @@ func TestAWSWorker_IsReadyChan(t *testing.T) {
 	})
 
 	t.Run("context expired", func(t *testing.T) {
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			DescribeInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&ec2.DescribeInstancesOutput{
 				Reservations: []types.Reservation{
@@ -665,7 +665,7 @@ func TestAWSWorker_IsReadyChan(t *testing.T) {
 				},
 			}, nil).
 			AnyTimes()
-		mAWSClient.EXPECT().
+		mClient.EXPECT().
 			DescribeInstanceStatus(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&ec2.DescribeInstanceStatusOutput{
 				InstanceStatuses: []types.InstanceStatus{{
@@ -676,9 +676,9 @@ func TestAWSWorker_IsReadyChan(t *testing.T) {
 			}, nil).
 			AnyTimes()
 
-		worker := &AWSWorker{
+		worker := &Worker{
 			logger: logger,
-			client: mAWSClient,
+			client: mClient,
 			id:     "id",
 			port:   port,
 		}
@@ -695,8 +695,8 @@ func TestAWSWorker_IsReadyChan(t *testing.T) {
 	t.Run("error", func(t *testing.T) {
 		expectedErr := errors.New("something bad happened")
 
-		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
-		mAWSClient.EXPECT().
+		mClient := NewMockWorkerEC2Client(ctrl)
+		mClient.EXPECT().
 			DescribeInstances(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&ec2.DescribeInstancesOutput{
 				Reservations: []types.Reservation{
@@ -706,14 +706,14 @@ func TestAWSWorker_IsReadyChan(t *testing.T) {
 				},
 			}, nil).
 			AnyTimes()
-		mAWSClient.EXPECT().
+		mClient.EXPECT().
 			DescribeInstanceStatus(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, expectedErr).
 			AnyTimes()
 
-		worker := &AWSWorker{
+		worker := &Worker{
 			logger: logger,
-			client: mAWSClient,
+			client: mClient,
 			id:     "id",
 			port:   port,
 		}
