@@ -581,7 +581,8 @@ func TestAWSWorker_IsReadyChan(t *testing.T) {
 						PublicIpAddress: aws.String(ip.String()),
 					}}},
 				},
-			}, nil)
+			}, nil).
+			AnyTimes()
 		mAWSClient.EXPECT().
 			DescribeInstanceStatus(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&ec2.DescribeInstanceStatusOutput{
@@ -590,7 +591,8 @@ func TestAWSWorker_IsReadyChan(t *testing.T) {
 						Name: types.InstanceStateNameRunning,
 					},
 				}},
-			}, nil)
+			}, nil).
+			AnyTimes()
 
 		worker := &AWSWorker{
 			logger: logger,
@@ -600,8 +602,125 @@ func TestAWSWorker_IsReadyChan(t *testing.T) {
 		}
 
 		ch := worker.IsReadyChan(context.Background(),
-			compute.WithTickerInterval(100*time.Millisecond),
+			compute.WithTickerInterval(50*time.Millisecond),
 			compute.WithConnTimeout(100*time.Millisecond))
 		m.For(t, "ch err").Assert(<-ch, m.BeNil())
+	})
+
+	t.Run("double check", func(t *testing.T) {
+		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
+		mAWSClient.EXPECT().
+			DescribeInstances(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&ec2.DescribeInstancesOutput{
+				Reservations: []types.Reservation{
+					{Instances: []types.Instance{{
+						PublicIpAddress: aws.String(ip.String()),
+					}}},
+				},
+			}, nil).
+			AnyTimes()
+		mAWSClient.EXPECT().
+			DescribeInstanceStatus(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&ec2.DescribeInstanceStatusOutput{
+				InstanceStatuses: []types.InstanceStatus{{
+					InstanceState: &types.InstanceState{
+						Name: types.InstanceStateNameRunning,
+					},
+				}},
+			}, nil).
+			After(mAWSClient.EXPECT().
+				DescribeInstanceStatus(gomock.Any(), gomock.Any(), gomock.Any()).
+				Return(&ec2.DescribeInstanceStatusOutput{
+					InstanceStatuses: []types.InstanceStatus{{
+						InstanceState: &types.InstanceState{
+							Name: types.InstanceStateNamePending,
+						},
+					}},
+				}, nil).
+				Times(1)).
+			AnyTimes()
+
+		worker := &AWSWorker{
+			logger: logger,
+			client: mAWSClient,
+			id:     "id",
+			port:   port,
+		}
+
+		ch := worker.IsReadyChan(context.Background(),
+			compute.WithTickerInterval(50*time.Millisecond),
+			compute.WithConnTimeout(100*time.Millisecond))
+		m.For(t, "ch err").Assert(<-ch, m.BeNil())
+	})
+
+	t.Run("context expired", func(t *testing.T) {
+		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
+		mAWSClient.EXPECT().
+			DescribeInstances(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&ec2.DescribeInstancesOutput{
+				Reservations: []types.Reservation{
+					{Instances: []types.Instance{{
+						PublicIpAddress: aws.String(ip.String()),
+					}}},
+				},
+			}, nil).
+			AnyTimes()
+		mAWSClient.EXPECT().
+			DescribeInstanceStatus(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&ec2.DescribeInstanceStatusOutput{
+				InstanceStatuses: []types.InstanceStatus{{
+					InstanceState: &types.InstanceState{
+						Name: types.InstanceStateNamePending,
+					},
+				}},
+			}, nil).
+			AnyTimes()
+
+		worker := &AWSWorker{
+			logger: logger,
+			client: mAWSClient,
+			id:     "id",
+			port:   port,
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		ch := worker.IsReadyChan(ctx,
+			compute.WithTickerInterval(50*time.Millisecond),
+			compute.WithConnTimeout(100*time.Millisecond))
+		m.For(t, "ch err").Assert(<-ch, m.Equal(context.DeadlineExceeded))
+	})
+
+	t.Run("error", func(t *testing.T) {
+		expectedErr := errors.New("something bad happened")
+
+		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
+		mAWSClient.EXPECT().
+			DescribeInstances(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&ec2.DescribeInstancesOutput{
+				Reservations: []types.Reservation{
+					{Instances: []types.Instance{{
+						PublicIpAddress: aws.String(ip.String()),
+					}}},
+				},
+			}, nil).
+			AnyTimes()
+		mAWSClient.EXPECT().
+			DescribeInstanceStatus(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, expectedErr).
+			AnyTimes()
+
+		worker := &AWSWorker{
+			logger: logger,
+			client: mAWSClient,
+			id:     "id",
+			port:   port,
+		}
+
+		ch := worker.IsReadyChan(context.Background(),
+			compute.WithTickerInterval(50*time.Millisecond),
+			compute.WithConnTimeout(100*time.Millisecond))
+		m.For(t, "ch err").Assert(<-ch, m.Equal(expectedErr))
 	})
 }

@@ -227,7 +227,7 @@ func (w *AWSWorker) IsReadyChan(ctx context.Context, opts ...compute.ReadyOption
 			case <-ticker.C:
 				isReady, err := w.IsReady(ctx, opts...)
 				if err != nil {
-					if err.Error() == "no instance statuses returned" {
+					if err.Error() == "instance not found" {
 						continue
 					}
 					ch <- err
@@ -237,6 +237,8 @@ func (w *AWSWorker) IsReadyChan(ctx context.Context, opts ...compute.ReadyOption
 
 				if isReady {
 					ch <- nil
+					ticker.Stop()
+					return
 				}
 			}
 		}
