@@ -412,3 +412,130 @@ func TestAWSWorker_Connect(t *testing.T) {
 		m.For(t, "err").Assert(err, m.Equal(context.DeadlineExceeded))
 	})
 }
+
+func TestAWSWorker_IsReady(t *testing.T) {
+	addr, _ := grpcServer(t)
+
+	ip := addr.AddrPort().Addr()
+	port := addr.AddrPort().Port()
+
+	logger := zaptest.NewLogger(t)
+
+	ctrl := gomock.NewController(t)
+	t.Cleanup(func() {
+		ctrl.Finish()
+	})
+
+	t.Run("normal behavior", func(t *testing.T) {
+		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
+		mAWSClient.EXPECT().
+			DescribeInstances(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&ec2.DescribeInstancesOutput{
+				Reservations: []types.Reservation{
+					{Instances: []types.Instance{{
+						PublicIpAddress: aws.String(ip.String()),
+					}}},
+				},
+			}, nil)
+		mAWSClient.EXPECT().
+			DescribeInstanceStatus(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&ec2.DescribeInstanceStatusOutput{
+				InstanceStatuses: []types.InstanceStatus{{
+					InstanceState: &types.InstanceState{
+						Name: types.InstanceStateNameRunning,
+					},
+				}},
+			}, nil)
+
+		worker := &AWSWorker{
+			logger: logger,
+			client: mAWSClient,
+			id:     "id",
+			port:   port,
+		}
+
+		ready, err := worker.IsReady(context.Background())
+		m.For(t, "err").Assert(err, m.BeNil())
+		m.For(t, "ready").Assert(ready, m.Equal(true))
+	})
+
+	t.Run("pending status", func(t *testing.T) {
+		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
+		mAWSClient.EXPECT().
+			DescribeInstanceStatus(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&ec2.DescribeInstanceStatusOutput{
+				InstanceStatuses: []types.InstanceStatus{{
+					InstanceState: &types.InstanceState{
+						Name: types.InstanceStateNamePending,
+					},
+				}},
+			}, nil)
+
+		worker := &AWSWorker{
+			logger: logger,
+			client: mAWSClient,
+			id:     "id",
+			port:   port,
+		}
+
+		ready, err := worker.IsReady(context.Background())
+		m.For(t, "err").Assert(err, m.BeNil())
+		m.For(t, "ready").Assert(ready, m.Equal(false))
+	})
+
+	t.Run("status error", func(t *testing.T) {
+		expectedErr := errors.New("something bad happened")
+
+		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
+		mAWSClient.EXPECT().
+			DescribeInstanceStatus(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, expectedErr)
+
+		worker := &AWSWorker{
+			logger: logger,
+			client: mAWSClient,
+			id:     "id",
+			port:   port,
+		}
+
+		ready, err := worker.IsReady(context.Background())
+		m.For(t, "err").Assert(err, m.Equal(expectedErr))
+		m.For(t, "ready").Assert(ready, m.Equal(false))
+	})
+
+	t.Run("connection timeout", func(t *testing.T) {
+		mAWSClient := NewMockAWSWorkerEC2Client(ctrl)
+		mAWSClient.EXPECT().
+			DescribeInstances(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&ec2.DescribeInstancesOutput{
+				Reservations: []types.Reservation{
+					{Instances: []types.Instance{{
+						PublicIpAddress: aws.String(ip.String()),
+					}}},
+				},
+			}, nil)
+		mAWSClient.EXPECT().
+			DescribeInstanceStatus(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&ec2.DescribeInstanceStatusOutput{
+				InstanceStatuses: []types.InstanceStatus{{
+					InstanceState: &types.InstanceState{
+						Name: types.InstanceStateNameRunning,
+					},
+				}},
+			}, nil)
+
+		worker := &AWSWorker{
+			logger: logger,
+			client: mAWSClient,
+			id:     "id",
+			port:   port + 1, // <- CHANGE HERE
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		ready, err := worker.IsReady(ctx)
+		m.For(t, "err").Assert(err, m.BeNil())
+		m.For(t, "ready").Assert(ready, m.Equal(false))
+	})
+}
