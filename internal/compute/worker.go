@@ -23,8 +23,8 @@ type Worker interface {
 	Worker() proto.WorkerServiceClient
 	Job() proto.JobServiceClient
 
-	IsReady(ctx context.Context, opts ...func(options *ReadyOptions)) (bool, error)
-	IsReadyChan(ctx context.Context, opts ...func(options *ReadyOptions)) <-chan error
+	IsReady(ctx context.Context, opts ...ReadyOptionsFunc) (bool, error)
+	IsReadyChan(ctx context.Context, opts ...ReadyOptionsFunc) <-chan error
 }
 
 type WorkerFactory interface {

@@ -167,7 +167,7 @@ func (w *AWSWorker) getInstanceStatus(ctx context.Context) (types.InstanceStateN
 	return types.InstanceStateNamePending, nil
 }
 
-func (w *AWSWorker) IsReady(ctx context.Context, opts ...func(options *compute.ReadyOptions)) (bool, error) {
+func (w *AWSWorker) IsReady(ctx context.Context, opts ...compute.ReadyOptionsFunc) (bool, error) {
 	if w.closed {
 		return false, compute.ErrClosed
 	}
@@ -204,7 +204,7 @@ func (w *AWSWorker) IsReady(ctx context.Context, opts ...func(options *compute.R
 	return true, nil
 }
 
-func (w *AWSWorker) IsReadyChan(ctx context.Context, opts ...func(options *compute.ReadyOptions)) <-chan error {
+func (w *AWSWorker) IsReadyChan(ctx context.Context, opts ...compute.ReadyOptionsFunc) <-chan error {
 	ch := make(chan error)
 
 	options := &compute.ReadyOptions{
