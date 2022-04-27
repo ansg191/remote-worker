@@ -1,6 +1,6 @@
 #!/bin/bash
 
-version="0.1.8"
+version="0.1.9"
 
 snap install ffmpeg
 snap install go --classic
