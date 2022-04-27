@@ -2,6 +2,7 @@ package compute
 
 import (
 	"context"
+	"errors"
 
 	"go.uber.org/zap"
 )
@@ -41,7 +42,15 @@ func (w *GenericWorkInfo[T, U]) setErr(err error) {
 }
 
 func (w *GenericWorkInfo[T, U]) run(ctx context.Context, logger *zap.Logger, req any, worker Worker) (any, error) {
-	return w.Run(ctx, logger, req.(T), worker)
+	switch req.(type) {
+	case T:
+		return w.Run(ctx, logger, req.(T), worker)
+	case nil:
+		var x T // Pass default value
+		return w.Run(ctx, logger, x, worker)
+	default:
+		return nil, errors.New("invalid request type")
+	}
 }
 
 func NewWorkInfo[T, U any](ctx context.Context, request T, runFunc WorkRunFunc[T, U]) *GenericWorkInfo[T, U] {
