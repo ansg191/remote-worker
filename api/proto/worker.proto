@@ -6,10 +6,179 @@ option go_package = "golang.anshulg.com/popcorntime/go_encoder/api/proto";
 
 service WorkerService {
   rpc Status(WorkerStatusRequest) returns (WorkerStatusResponse) {}
+  rpc Info(WorkerInfoRequest) returns (WorkerInfoResponse) {}
 }
 
 message WorkerStatusRequest {}
-
 message WorkerStatusResponse {
   string msg = 1;
+}
+
+message WorkerInfoRequest {}
+message WorkerInfoResponse {
+  reserved 4;
+  MemoryInfo memory = 1;
+  CPUInfo cpu = 2;
+  StorageInfo storage = 3;
+  //  TopologyInfo topology = 4;
+  NetworkInfo network = 5;
+  PCIInfo pci = 6;
+  GPUInfo gpu = 7;
+}
+
+message MemoryInfo {
+  uint64 physical = 1;
+  uint64 usable = 2;
+}
+
+message CPUInfo {
+  uint32 cores = 1;
+  uint32 threads = 2;
+
+  message Processor {
+    int32 id = 1;
+    uint32 numCores = 2;
+    uint32 numThreads = 3;
+    string vendor = 4;
+    string model = 5;
+    repeated string capabilities = 6;
+
+    message Core {
+      int32 id = 1;
+      int32 index = 2;
+      uint32 numThreads = 3;
+      repeated int32 logicalProcessors = 4;
+    }
+    repeated Core cores = 7;
+  }
+  repeated Processor processors = 3;
+}
+
+message StorageInfo {
+  uint64 totalBytes = 1;
+  repeated Disk disks = 2;
+
+  message Disk {
+    string name = 1;
+    uint64 sizeBytes = 2;
+    uint64 physicalBlockSizeBytes = 3;
+    bool isRemovable = 4;
+    DriveType driveType = 5;
+    StorageController storageController = 6;
+    sint32 numaNodeID = 7;
+    string vendor = 8;
+    string model = 9;
+    string serialNumber = 10;
+    string wwn = 11;
+    repeated Partition partitions = 12;
+
+    enum StorageController {
+      UNKNOWN = 0;
+      SCSI = 1;
+      IDE = 2;
+      VIRTIO = 3;
+      MMC = 4;
+      NVME = 5;
+    }
+    message Partition {
+      string name = 1;
+      uint64 sizeBytes = 2;
+      string mountPoint = 3;
+      string type = 4;
+      bool isReadOnly = 5;
+      string uuid = 6;
+    }
+  }
+}
+
+enum DriveType {
+  UNKNOWN = 0;
+  HDD = 1;
+  FDD = 2;
+  ODD = 3;
+  SSD = 4;
+}
+
+message TopologyInfo {
+  Architecture architecture = 1;
+  repeated Node nodes = 2;
+
+  enum Architecture {
+    NUMA = 0;
+    SMP = 1;
+  }
+  message Node {
+    int32 id = 1;
+  }
+}
+
+message NetworkInfo {
+  message NIC {
+    string name = 1;
+    string macAddress = 2;
+    bool isVirtual = 3;
+    repeated NICCapability capabilities = 4;
+    string PCIAddress = 5;
+
+    message NICCapability {
+      string name = 1;
+      bool isEnabled = 2;
+      bool canEnable = 3;
+    }
+  }
+
+  repeated NIC controllers = 1;
+}
+
+message PCIInfo {
+  message Device {
+    Vendor vendor = 1;
+    Vendor.Product product = 2;
+    Vendor.Product subsystem = 3;
+    Class class = 4;
+    Class.SubClass subclass = 5;
+    Class.ProgrammingInterface pi = 6;
+    string driver = 7;
+  }
+  repeated Device devices = 1;
+
+  message Class {
+    string id = 1;
+    string name = 2;
+    repeated SubClass subclasses = 3;
+
+    message SubClass {
+      string id = 1;
+      string name = 2;
+      repeated ProgrammingInterface pInterfaces = 3;
+    }
+
+    message ProgrammingInterface {
+      string id = 1;;
+      string name = 2;
+    }
+  }
+
+  message Vendor {
+    string id = 1;
+    string name = 2;
+    repeated Product products = 3;
+
+    message Product {
+      string vendorId = 1;
+      string id = 2;
+      string name = 3;
+      repeated Product subsystems = 4;
+    }
+  }
+}
+
+message GPUInfo {
+  message Card {
+    uint32 index = 1;
+    string address = 2;
+    PCIInfo.Device device = 3;
+    TopologyInfo.Node node = 4;
+  }
+  repeated Card card = 1;
 }
