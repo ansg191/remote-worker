@@ -10,7 +10,7 @@ import (
 	"github.com/jaypipes/pcidb"
 	"go.uber.org/zap"
 
-	"golang.anshulg.com/popcorntime/go_encoder/api/proto"
+	"github.com/ansg191/go_encoder/api/proto"
 )
 
 type WorkerServer struct {

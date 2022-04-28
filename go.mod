@@ -1,4 +1,4 @@
-module golang.anshulg.com/popcorntime/go_encoder
+module github.com/ansg191/go_encoder
 
 go 1.18
 
@@ -16,6 +16,7 @@ require (
 	github.com/xfrr/goffmpeg v0.0.0-20210624103149-5ca2d3062daf
 	go.uber.org/zap v1.21.0
 	google.golang.org/grpc v1.46.0
+	google.golang.org/protobuf v1.28.0
 )
 
 require (
@@ -46,7 +47,6 @@ require (
 	golang.org/x/sys v0.0.0-20220319134239-a9b59b0215f8 // indirect
 	golang.org/x/text v0.3.3 // indirect
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
-	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	howett.net/plist v1.0.0 // indirect
 )

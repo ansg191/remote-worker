@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"golang.anshulg.com/popcorntime/go_encoder/api/proto"
+	"github.com/ansg191/go_encoder/api/proto"
 )
 
 var (
