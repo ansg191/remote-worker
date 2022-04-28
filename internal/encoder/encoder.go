@@ -17,7 +17,7 @@ import (
 	"github.com/xfrr/goffmpeg/transcoder"
 	"go.uber.org/zap"
 
-	"github.com/ansg191/go_encoder/api/proto"
+	"github.com/ansg191/remote-worker/api/proto"
 )
 
 type EncodeJob interface {

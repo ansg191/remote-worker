@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"github.com/ansg191/go_encoder/api/proto"
+	"github.com/ansg191/remote-worker/api/proto"
 )
 
 var (

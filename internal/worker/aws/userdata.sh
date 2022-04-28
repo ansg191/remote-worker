@@ -10,7 +10,7 @@ mkdir "/data"
 mkfs -t xfs /dev/nvme1n1
 mount /dev/nvme1n1 /data
 
-wget "https://github.com/ansg191/go_encoder/releases/download/v$version/go_encoder_worker_${version}_Linux_x86_64.tar.gz"
+wget "https://github.com/ansg191/remote-worker/releases/download/v$version/go_encoder_worker_${version}_Linux_x86_64.tar.gz"
 tar xvf "go_encoder_worker_${version}_Linux_x86_64.tar.gz"
 
 cat << EOF | sudo tee /etc/systemd/system/go_encoder_worker.service > /dev/null

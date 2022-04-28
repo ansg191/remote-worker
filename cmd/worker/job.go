@@ -9,8 +9,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/ansg191/go_encoder/api/proto"
-	"github.com/ansg191/go_encoder/internal/encoder"
+	"github.com/ansg191/remote-worker/api/proto"
+	"github.com/ansg191/remote-worker/internal/encoder"
 )
 
 type JobServer struct {

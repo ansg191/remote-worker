@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/ansg191/go_encoder/api/proto"
+	"github.com/ansg191/remote-worker/api/proto"
 )
 
 var (

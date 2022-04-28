@@ -1,4 +1,4 @@
-module github.com/ansg191/go_encoder
+module github.com/ansg191/remote-worker
 
 go 1.18
 

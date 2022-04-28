@@ -15,8 +15,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/ansg191/go_encoder/api/proto"
-	"github.com/ansg191/go_encoder/internal/compute"
+	"github.com/ansg191/remote-worker/api/proto"
+	"github.com/ansg191/remote-worker/internal/compute"
 )
 
 //go:embed userdata.sh

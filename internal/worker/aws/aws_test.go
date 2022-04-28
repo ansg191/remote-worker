@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/ansg191/go_encoder/internal/compute"
+	"github.com/ansg191/remote-worker/internal/compute"
 )
 
 func grpcServer(t *testing.T) (*net.TCPAddr, *grpc.Server) {
