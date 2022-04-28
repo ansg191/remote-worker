@@ -22,7 +22,7 @@ import (
 //go:embed userdata.sh
 var userData []byte
 
-var DefaultAWSInstanceParams = &ec2.RunInstancesInput{
+var DefaultInstanceParams = &ec2.RunInstancesInput{
 	MinCount:           aws.Int32(1),
 	MaxCount:           aws.Int32(1),
 	IamInstanceProfile: nil,
@@ -37,16 +37,16 @@ var DefaultAWSInstanceParams = &ec2.RunInstancesInput{
 	UserData:         aws.String(base64.StdEncoding.EncodeToString(userData)),
 }
 
-type AWSWorkerEC2Client interface {
+type WorkerEC2Client interface {
 	RunInstances(ctx context.Context, params *ec2.RunInstancesInput, optFns ...func(*ec2.Options)) (*ec2.RunInstancesOutput, error)
 	DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error)
 	DescribeInstanceStatus(ctx context.Context, params *ec2.DescribeInstanceStatusInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstanceStatusOutput, error)
 	TerminateInstances(ctx context.Context, params *ec2.TerminateInstancesInput, optFns ...func(*ec2.Options)) (*ec2.TerminateInstancesOutput, error)
 }
 
-type AWSWorker struct {
+type Worker struct {
 	logger *zap.Logger
-	client AWSWorkerEC2Client
+	client WorkerEC2Client
 
 	id   string
 	port uint16
@@ -60,7 +60,7 @@ type AWSWorker struct {
 	closed bool
 }
 
-func (w *AWSWorker) Close() error {
+func (w *Worker) Close() error {
 	if w.closed {
 		return compute.ErrClosed
 	}
@@ -81,16 +81,16 @@ func (w *AWSWorker) Close() error {
 	return err
 }
 
-func (w *AWSWorker) Equals(other compute.Worker) bool {
+func (w *Worker) Equals(other compute.Worker) bool {
 	switch v := other.(type) {
-	case *AWSWorker:
+	case *Worker:
 		return w.id == v.id
 	default:
 		return false
 	}
 }
 
-func (w *AWSWorker) getIP(ctx context.Context) (netip.Addr, error) {
+func (w *Worker) getIP(ctx context.Context) (netip.Addr, error) {
 	instances, err := w.client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
 		InstanceIds: []string{w.id},
 	})
@@ -110,7 +110,7 @@ func (w *AWSWorker) getIP(ctx context.Context) (netip.Addr, error) {
 	return netip.ParseAddr(aws.ToString(instance.PublicIpAddress))
 }
 
-func (w *AWSWorker) Connect(ctx context.Context) (err error) {
+func (w *Worker) Connect(ctx context.Context) (err error) {
 	if w.closed {
 		return compute.ErrClosed
 	}
@@ -139,15 +139,15 @@ func (w *AWSWorker) Connect(ctx context.Context) (err error) {
 	return nil
 }
 
-func (w *AWSWorker) Worker() proto.WorkerServiceClient {
+func (w *Worker) Worker() proto.WorkerServiceClient {
 	return w.worker
 }
 
-func (w *AWSWorker) Job() proto.JobServiceClient {
+func (w *Worker) Job() proto.JobServiceClient {
 	return w.job
 }
 
-func (w *AWSWorker) getInstanceStatus(ctx context.Context) (types.InstanceStateName, error) {
+func (w *Worker) getInstanceStatus(ctx context.Context) (types.InstanceStateName, error) {
 	statuses, err := w.client.DescribeInstanceStatus(ctx, &ec2.DescribeInstanceStatusInput{
 		InstanceIds: []string{w.id},
 	})
@@ -167,7 +167,7 @@ func (w *AWSWorker) getInstanceStatus(ctx context.Context) (types.InstanceStateN
 	return types.InstanceStateNamePending, nil
 }
 
-func (w *AWSWorker) IsReady(ctx context.Context) (bool, error) {
+func (w *Worker) IsReady(ctx context.Context, opts ...compute.ReadyOptionsFunc) (bool, error) {
 	if w.closed {
 		return false, compute.ErrClosed
 	}
@@ -181,7 +181,15 @@ func (w *AWSWorker) IsReady(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	connCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	options := &compute.ReadyOptions{
+		ConnTimeout: 10 * time.Second,
+	}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	connCtx, cancel := context.WithTimeout(ctx, options.ConnTimeout)
 	defer cancel()
 
 	err = w.Connect(connCtx)
@@ -196,12 +204,20 @@ func (w *AWSWorker) IsReady(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-func (w *AWSWorker) IsReadyChan(ctx context.Context) <-chan error {
+func (w *Worker) IsReadyChan(ctx context.Context, opts ...compute.ReadyOptionsFunc) <-chan error {
 	ch := make(chan error)
 
-	ticker := time.NewTicker(15 * time.Second)
+	options := &compute.ReadyOptions{
+		TickerInterval: 15 * time.Second,
+		ConnTimeout:    10 * time.Second,
+	}
+
+	for _, opt := range opts {
+		opt(options)
+	}
 
 	go func() {
+		ticker := time.NewTicker(options.TickerInterval)
 		for {
 			select {
 			case <-ctx.Done():
@@ -209,9 +225,9 @@ func (w *AWSWorker) IsReadyChan(ctx context.Context) <-chan error {
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				isReady, err := w.IsReady(ctx)
+				isReady, err := w.IsReady(ctx, opts...)
 				if err != nil {
-					if err.Error() == "no instance statuses returned" {
+					if err.Error() == "instance not found" {
 						continue
 					}
 					ch <- err
@@ -221,6 +237,8 @@ func (w *AWSWorker) IsReadyChan(ctx context.Context) <-chan error {
 
 				if isReady {
 					ch <- nil
+					ticker.Stop()
+					return
 				}
 			}
 		}
@@ -229,15 +247,15 @@ func (w *AWSWorker) IsReadyChan(ctx context.Context) <-chan error {
 	return ch
 }
 
-type AWSWorkerFactory struct {
+type WorkerFactory struct {
 	logger *zap.Logger
-	client AWSWorkerEC2Client
+	client WorkerEC2Client
 	params *ec2.RunInstancesInput
 	port   uint16
 }
 
-func NewAWSWorkerFactory(logger *zap.Logger, client AWSWorkerEC2Client, input *ec2.RunInstancesInput, port uint16) compute.WorkerFactory {
-	return &AWSWorkerFactory{
+func NewWorkerFactory(logger *zap.Logger, client WorkerEC2Client, input *ec2.RunInstancesInput, port uint16) compute.WorkerFactory {
+	return &WorkerFactory{
 		logger: logger,
 		client: client,
 		params: input,
@@ -245,7 +263,7 @@ func NewAWSWorkerFactory(logger *zap.Logger, client AWSWorkerEC2Client, input *e
 	}
 }
 
-func (f *AWSWorkerFactory) Create(ctx context.Context) (compute.Worker, error) {
+func (f *WorkerFactory) Create(ctx context.Context) (compute.Worker, error) {
 	instances, err := f.client.RunInstances(ctx, f.params)
 	if err != nil {
 		return nil, err
@@ -257,7 +275,7 @@ func (f *AWSWorkerFactory) Create(ctx context.Context) (compute.Worker, error) {
 
 	instance := instances.Instances[0]
 
-	return &AWSWorker{
+	return &Worker{
 		logger: f.logger,
 		client: f.client,
 		id:     aws.ToString(instance.InstanceId),

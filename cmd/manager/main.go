@@ -28,7 +28,7 @@ func run() error {
 		return err
 	}
 
-	pool := compute.NewPool(logger, aws.NewAWSWorkerFactory(logger, ec2.NewFromConfig(cfg), aws.DefaultAWSInstanceParams, 443))
+	pool := compute.NewPool(logger, aws.NewWorkerFactory(logger, ec2.NewFromConfig(cfg), aws.DefaultInstanceParams, 443))
 	defer func(pool compute.Pool) {
 		_ = pool.Close()
 	}(pool)

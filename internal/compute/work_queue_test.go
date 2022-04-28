@@ -134,8 +134,8 @@ func TestDefaultWorkQueue_Add(t *testing.T) {
 		AnyTimes()
 
 	mWorker.EXPECT().
-		IsReadyChan(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) <-chan error {
+		IsReadyChan(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, opts ...func(options *ReadyOptions)) <-chan error {
 			ch := make(chan error)
 			go func() {
 				ch <- nil
