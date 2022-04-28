@@ -9,8 +9,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"golang.anshulg.com/popcorntime/go_encoder/api/proto"
-	"golang.anshulg.com/popcorntime/go_encoder/internal/encoder"
+	"github.com/ansg191/remote-worker/api/proto"
+	"github.com/ansg191/remote-worker/internal/encoder"
 )
 
 type JobServer struct {
@@ -24,7 +24,7 @@ type JobServer struct {
 	job encoder.EncodeJob
 }
 
-func (s *JobServer) Start(ctx context.Context, request *proto.JobStartRequest) (*proto.JobStartResponse, error) {
+func (s *JobServer) Start(_ context.Context, request *proto.JobStartRequest) (*proto.JobStartResponse, error) {
 	job := request.Job
 	if job == nil {
 		return nil, status.Error(codes.InvalidArgument, "job not provided")
@@ -52,7 +52,7 @@ func (s *JobServer) Start(ctx context.Context, request *proto.JobStartRequest) (
 	return &proto.JobStartResponse{}, nil
 }
 
-func (s *JobServer) Cancel(ctx context.Context, request *proto.JobCancelRequest) (*proto.JobCancelResponse, error) {
+func (s *JobServer) Cancel(context.Context, *proto.JobCancelRequest) (*proto.JobCancelResponse, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
@@ -66,7 +66,7 @@ func (s *JobServer) Cancel(ctx context.Context, request *proto.JobCancelRequest)
 	return &proto.JobCancelResponse{}, nil
 }
 
-func (s *JobServer) Status(request *proto.JobStatusRequest, stream proto.JobService_StatusServer) error {
+func (s *JobServer) Status(_ *proto.JobStatusRequest, stream proto.JobService_StatusServer) error {
 	if s.job == nil {
 		return status.Errorf(codes.NotFound, "no current job found")
 	}

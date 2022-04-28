@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package encoder_job;
 
-option go_package = "golang.anshulg.com/popcorntime/go_encoder/api/proto";
+option go_package = "github.com/ansg191/remote-worker/api/proto";
 
 service JobService {
   rpc Start(JobStartRequest) returns (JobStartResponse) {}

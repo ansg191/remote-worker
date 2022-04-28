@@ -17,7 +17,7 @@ import (
 	"github.com/xfrr/goffmpeg/transcoder"
 	"go.uber.org/zap"
 
-	"golang.anshulg.com/popcorntime/go_encoder/api/proto"
+	"github.com/ansg191/remote-worker/api/proto"
 )
 
 type EncodeJob interface {
@@ -142,7 +142,9 @@ func (d *DefaultEncodeJob) setup() error {
 		if err != nil {
 			return err
 		}
-		defer file.Close()
+		defer func(file *os.File) {
+			_ = file.Close()
+		}(file)
 
 		downloader := manager.NewDownloader(s3.NewFromConfig(d.cfg))
 
@@ -167,7 +169,9 @@ func (d *DefaultEncodeJob) setup() error {
 		if err != nil {
 			return err
 		}
-		defer file.Close()
+		defer func(file *os.File) {
+			_ = file.Close()
+		}(file)
 
 		d.destFilePath = filePath
 	} else {
@@ -255,7 +259,9 @@ func (d *DefaultEncodeJob) cleanup(err error) error {
 		if err != nil {
 			return err
 		}
-		defer file.Close()
+		defer func(file *os.File) {
+			_ = file.Close()
+		}(file)
 
 		u, err := url.Parse(d.destPath)
 		if err != nil {

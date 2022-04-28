@@ -9,9 +9,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"go.uber.org/zap"
 
-	"golang.anshulg.com/popcorntime/go_encoder/api/proto"
-	"golang.anshulg.com/popcorntime/go_encoder/internal/compute"
-	"golang.anshulg.com/popcorntime/go_encoder/internal/worker/aws"
+	"github.com/ansg191/remote-worker/api/proto"
+	"github.com/ansg191/remote-worker/internal/compute"
+	"github.com/ansg191/remote-worker/internal/worker/aws"
 )
 
 func run() error {

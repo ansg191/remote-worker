@@ -48,5 +48,5 @@ jobs:
 
       - name: Build
         run: |
-          go build golang.anshulg.com/popcorntime/go_encoder/cmd/worker
-          go build golang.anshulg.com/popcorntime/go_encoder/cmd/manager
+          go build github.com/ansg191/remote-worker/cmd/worker
+          go build github.com/ansg191/remote-worker/cmd/manager

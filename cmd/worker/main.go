@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"golang.anshulg.com/popcorntime/go_encoder/api/proto"
+	"github.com/ansg191/remote-worker/api/proto"
 )
 
 var (
@@ -25,7 +25,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer logger.Sync()
+	defer func(logger *zap.Logger) {
+		_ = logger.Sync()
+	}(logger)
 
 	logger.Debug("Configuration Info",
 		zap.Stringp("tempPath", tempPath),
