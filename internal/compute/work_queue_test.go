@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	m "github.com/launchdarkly/go-test-helpers/v2/matchers"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
@@ -30,7 +31,7 @@ func TestNewQueue(t *testing.T) {
 			expect: &DefaultWorkQueue{
 				pool:    nil,
 				workers: nil,
-				maxSize: 5,
+				maxSize: atomic.NewUint32(5),
 			},
 		},
 	}
