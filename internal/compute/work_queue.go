@@ -3,6 +3,7 @@ package compute
 import (
 	"sync"
 
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
 
@@ -28,14 +29,14 @@ type DefaultWorkQueue struct {
 	mtx     sync.Mutex // mtx is a mutex for workers.
 	workers []Worker   // Instances in-use taken from the pool.
 
-	maxSize int // Maximum number of active in-use workers
+	maxSize *atomic.Uint32 // Maximum number of active in-use workers
 }
 
 func NewQueue(logger *zap.Logger, pool Pool, maxSize int) WorkQueue {
 	wq := &DefaultWorkQueue{
 		logger:    logger,
 		pool:      pool,
-		maxSize:   maxSize,
+		maxSize:   atomic.NewUint32(uint32(maxSize)),
 		workQueue: make(chan WorkInfo, 1024),
 	}
 
@@ -47,9 +48,10 @@ func NewQueue(logger *zap.Logger, pool Pool, maxSize int) WorkQueue {
 func (q *DefaultWorkQueue) run() {
 	for {
 		q.mtx.Lock()
-		if len(q.workers) < q.maxSize {
-			q.mtx.Unlock()
+		workLength := uint32(len(q.workers))
+		q.mtx.Unlock()
 
+		if workLength < q.maxSize.Load() {
 			// Wait for work
 			work := <-q.workQueue
 
@@ -103,8 +105,6 @@ func (q *DefaultWorkQueue) run() {
 				}
 				q.logger.Info("Work finished", zap.Any("req", work.getReq()))
 			}()
-		} else {
-			q.mtx.Unlock()
 		}
 	}
 }
@@ -120,11 +120,9 @@ func (q *DefaultWorkQueue) Wait() {
 }
 
 func (q *DefaultWorkQueue) GetMaxSize() int {
-	return q.maxSize
+	return int(q.maxSize.Load())
 }
 
 func (q *DefaultWorkQueue) SetMaxSize(size int) {
-	q.mtx.Lock()
-	defer q.mtx.Unlock()
-	q.maxSize = size
+	q.maxSize.Store(uint32(size))
 }
