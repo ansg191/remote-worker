@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.16.3
 	github.com/aws/aws-sdk-go-v2/config v1.15.4
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.7
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.37.0
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.38.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.26.7
 	github.com/golang/mock v1.6.0
 	github.com/jaypipes/ghw v0.9.0
@@ -14,6 +14,7 @@ require (
 	github.com/launchdarkly/go-test-helpers/v2 v2.3.1
 	github.com/pkg/errors v0.9.1
 	github.com/xfrr/goffmpeg v0.0.0-20210624103149-5ca2d3062daf
+	go.uber.org/atomic v1.7.0
 	go.uber.org/zap v1.21.0
 	google.golang.org/grpc v1.46.0
 )
@@ -40,7 +41,6 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
-	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4 // indirect
 	golang.org/x/sys v0.0.0-20220319134239-a9b59b0215f8 // indirect
