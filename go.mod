@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.15.4
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.7
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.40.0
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.26.7
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.26.9
 	github.com/golang/mock v1.6.0
 	github.com/jaypipes/ghw v0.9.0
 	github.com/jaypipes/pcidb v1.0.0
