@@ -11,7 +11,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/jaypipes/ghw v0.9.0
 	github.com/jaypipes/pcidb v1.0.0
-	github.com/launchdarkly/go-test-helpers/v2 v2.3.1
+	github.com/launchdarkly/go-test-helpers/v2 v2.3.2
 	github.com/pkg/errors v0.9.1
 	github.com/xfrr/goffmpeg v0.0.0-20210624103149-5ca2d3062daf
 	go.uber.org/atomic v1.9.0
