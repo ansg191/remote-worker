@@ -3,7 +3,7 @@ module github.com/ansg191/remote-worker
 go 1.18
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.16.3
+	github.com/aws/aws-sdk-go-v2 v1.16.4
 	github.com/aws/aws-sdk-go-v2/config v1.15.5
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.10
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.43.0
