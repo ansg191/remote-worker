@@ -16,7 +16,7 @@ require (
 	github.com/xfrr/goffmpeg v0.0.0-20210624103149-5ca2d3062daf
 	go.uber.org/atomic v1.10.0
 	go.uber.org/zap v1.21.0
-	google.golang.org/grpc v1.47.0
+	google.golang.org/grpc v1.50.1
 )
 
 require (
